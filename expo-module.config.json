@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["ExpoPrecisionMetronomeModule"]
+  },
+  "android": {
+    "modules": ["net.guitar0.metronome.ExpoPrecisionMetronomeModule"]
+  }
+}
