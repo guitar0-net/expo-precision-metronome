@@ -1,11 +1,13 @@
-import { requireNativeView } from 'expo';
-import * as React from 'react';
+import { requireNativeView } from "expo";
+import * as React from "react";
 
-import { ExpoPrecisionMetronomeViewProps } from './ExpoPrecisionMetronome.types';
+import { ExpoPrecisionMetronomeViewProps } from "./ExpoPrecisionMetronome.types";
 
 const NativeView: React.ComponentType<ExpoPrecisionMetronomeViewProps> =
-  requireNativeView('ExpoPrecisionMetronome');
+  requireNativeView("ExpoPrecisionMetronome");
 
-export default function ExpoPrecisionMetronomeView(props: ExpoPrecisionMetronomeViewProps) {
+export default function ExpoPrecisionMetronomeView(
+  props: ExpoPrecisionMetronomeViewProps,
+) {
   return <NativeView {...props} />;
 }

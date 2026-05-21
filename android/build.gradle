@@ -1,6 +1,7 @@
 plugins {
   id 'com.android.library'
   id 'expo-module-gradle-plugin'
+  id 'org.jlleitschuh.gradle.ktlint' version '12.1.1'
 }
 
 group = 'net.guitar0.metronome'
@@ -12,7 +13,10 @@ android {
     versionCode 1
     versionName "0.1.0"
   }
-  lintOptions {
-    abortOnError false
+  lint {
+    abortOnError true
+    warningsAsErrors false
+    // Ignore generated and third-party code
+    checkDependencies false
   }
 }

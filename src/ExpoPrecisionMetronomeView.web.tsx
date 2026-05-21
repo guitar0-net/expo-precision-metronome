@@ -1,8 +1,10 @@
-import * as React from 'react';
+import * as React from "react";
 
-import { ExpoPrecisionMetronomeViewProps } from './ExpoPrecisionMetronome.types';
+import { ExpoPrecisionMetronomeViewProps } from "./ExpoPrecisionMetronome.types";
 
-export default function ExpoPrecisionMetronomeView(props: ExpoPrecisionMetronomeViewProps) {
+export default function ExpoPrecisionMetronomeView(
+  props: ExpoPrecisionMetronomeViewProps,
+) {
   return (
     <div>
       <iframe
