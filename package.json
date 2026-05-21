@@ -8,8 +8,13 @@
     "build": "expo-module build",
     "clean": "expo-module clean",
     "lint": "expo-module lint",
+    "lint:kt": "cd example/android && ./gradlew :expo-precision-metronome:ktlintCheck --no-daemon",
+    "lint:swift": "swiftlint lint --strict",
+    "lint:android": "cd example/android && ./gradlew :expo-precision-metronome:lint --no-daemon",
+    "type:check": "expo-module typecheck",
     "test": "expo-module test",
-    "prepare": "expo-module prepare",
+    "check": "npm run lint && npm run type:check && npm run test",
+    "prepare": "expo-module prepare && husky",
     "prepublishOnly": "expo-module prepublishOnly",
     "expo-module": "expo-module",
     "open:ios": "xed example/ios",
@@ -28,11 +33,32 @@
   "author": "Andrey Kotlyar <kotlyar562@gmail.com> (kotlyar-andrey)",
   "license": "MIT",
   "homepage": "https://github.com/guitar0-net/expo-precision-metronome#readme",
-  "dependencies": {},
+  "commitlint": {
+    "extends": [
+      "@commitlint/config-conventional"
+    ]
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{js,mjs,json,md}": [
+      "prettier --write"
+    ],
+    "*.{kt,kts}": [
+      "ktlint --format"
+    ]
+  },
   "devDependencies": {
+    "@commitlint/cli": "^20.5.3",
+    "@commitlint/config-conventional": "^20.5.3",
     "@types/react": "~19.1.1",
-    "expo-module-scripts": "^55.0.2",
+    "eslint-config-universe": "^15.0.3",
     "expo": "^55.0.24",
+    "expo-module-scripts": "^55.0.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
     "react-native": "0.82.1"
   },
   "peerDependencies": {
