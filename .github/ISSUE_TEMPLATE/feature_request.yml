@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: 2026 Andrey Kotlyar <kotlyar562@gmail.com>
+#
+# SPDX-License-Identifier: MIT
+
+name: Feature Request
+description: Suggest a new feature or improvement
+title: "[Feature]: "
+labels: ["feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion! Please describe the feature in detail.
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: One or two sentences describing the feature
+    validations:
+      required: true
+  - type: textarea
+    id: detailed-description
+    attributes:
+      label: Detailed description
+      description: Describe in detail how the feature should work
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: What problem does this solve? What use case does it enable?
+    validations:
+      required: true
+  - type: textarea
+    id: examples
+    attributes:
+      label: Usage examples
+      description: Example code or scenarios showing how you would use this feature

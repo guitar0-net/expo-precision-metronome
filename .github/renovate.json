@@ -1,0 +1,57 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+
+  "minimumReleaseAge": "3 days",
+
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "labels": ["security"],
+    "minimumReleaseAge": "0 days"
+  },
+
+  "schedule": ["before 6am on Saturday"],
+
+  "labels": ["dependencies"],
+  "commitMessagePrefix": "chore(deps):",
+  "rebaseWhen": "conflicted",
+  "separateMajorMinor": true,
+  "major": {
+    "labels": ["dependencies", "breaking-change"]
+  },
+
+  "packageRules": [
+    {
+      "matchDepTypes": ["devDependencies"],
+      "groupName": "dev-dependencies",
+      "labels": ["dependencies", "npm"]
+    },
+    {
+      "matchPackageNames": ["expo", "expo-*", "@expo/**"],
+      "groupName": "expo",
+      "minimumReleaseAge": "5 days"
+    },
+    {
+      "matchPackageNames": [
+        "react-native",
+        "react",
+        "@types/react",
+        "@types/react-native"
+      ],
+      "groupName": "react-native"
+    },
+    {
+      "matchPackageNames": ["eslint", "eslint-*", "@typescript-eslint/**", "prettier"],
+      "groupName": "linting"
+    },
+    {
+      "matchPackageNames": ["typescript", "ts-node", "tslib"],
+      "groupName": "build-tooling"
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "groupName": "github-actions",
+      "labels": ["dependencies", "ci"]
+    }
+  ]
+}
