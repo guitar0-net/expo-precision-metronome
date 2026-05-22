@@ -12,11 +12,36 @@ android {
   defaultConfig {
     versionCode 1
     versionName "0.1.0"
+
+    externalNativeBuild {
+      cmake {
+        cppFlags "-std=c++17"
+        arguments "-DANDROID_STL=c++_shared"
+      }
+    }
+    ndk {
+      abiFilters "arm64-v8a", "x86_64"
+    }
   }
+
+  buildFeatures {
+    prefab true
+  }
+
+  externalNativeBuild {
+    cmake {
+      path "src/main/cpp/CMakeLists.txt"
+      version "3.22.1"
+    }
+  }
+
   lint {
     abortOnError true
     warningsAsErrors false
-    // Ignore generated and third-party code
     checkDependencies false
   }
+}
+
+dependencies {
+  implementation "com.google.oboe:oboe:1.9.3"
 }
