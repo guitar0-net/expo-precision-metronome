@@ -1,14 +1,16 @@
-import { registerWebModule, NativeModule } from "expo";
+import { NativeModule, registerWebModule } from "expo";
 
 import { ExpoPrecisionMetronomeModuleEvents } from "./ExpoPrecisionMetronome.types";
 
 class ExpoPrecisionMetronomeModule extends NativeModule<ExpoPrecisionMetronomeModuleEvents> {
-  PI = Math.PI;
-  async setValueAsync(value: string): Promise<void> {
-    this.emit("onChange", { value });
+  async start(_bpm: number): Promise<void> {
+    throw new Error("ExpoPrecisionMetronome is not supported on web");
   }
-  hello() {
-    return "Hello world! 👋";
+  async stop(): Promise<void> {
+    throw new Error("ExpoPrecisionMetronome is not supported on web");
+  }
+  async setBpm(_bpm: number): Promise<void> {
+    throw new Error("ExpoPrecisionMetronome is not supported on web");
   }
 }
 

@@ -1,19 +1,16 @@
-import type { StyleProp, ViewStyle } from "react-native";
+export const BPM_MIN = 20;
+export const BPM_MAX = 300;
 
-export type OnLoadEventPayload = {
-  url: string;
+export type BeatEventPayload = {
+  beat: number;
+  timestamp: number;
+};
+
+export type StopEventPayload = {
+  reason: "explicit" | "interruption";
 };
 
 export type ExpoPrecisionMetronomeModuleEvents = {
-  onChange: (params: ChangeEventPayload) => void;
-};
-
-export type ChangeEventPayload = {
-  value: string;
-};
-
-export type ExpoPrecisionMetronomeViewProps = {
-  url: string;
-  onLoad: (event: { nativeEvent: OnLoadEventPayload }) => void;
-  style?: StyleProp<ViewStyle>;
+  onBeat: (params: BeatEventPayload) => void;
+  onStop: (params: StopEventPayload) => void;
 };
