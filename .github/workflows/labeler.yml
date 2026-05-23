@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: 2026 Andrey Kotlyar <kotlyar562@gmail.com>
+#
+# SPDX-License-Identifier: MIT
+
+name: Labeler
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label:
+    name: Label PR
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Apply labels
+        uses: actions/labeler@v6
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
