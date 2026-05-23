@@ -5,7 +5,7 @@ let package = Package(
     name: "MetronomeCore",
     platforms: [.iOS(.v15), .macOS(.v13)],
     products: [
-        .library(name: "MetronomeCore", targets: ["MetronomeCore"]),
+        .library(name: "MetronomeCore", targets: ["MetronomeCore"])
     ],
     targets: [
         .target(
@@ -16,13 +16,13 @@ let package = Package(
                 "ExpoPrecisionMetronomeModule.swift",
                 "ExpoPrecisionMetronomeView.swift",
                 "MetronomeEngine.swift",
-                "Tests",
+                "Tests"
             ]
         ),
         .testTarget(
             name: "MetronomeCoreTests",
             dependencies: ["MetronomeCore"],
             path: "Tests"
-        ),
+        )
     ]
 )

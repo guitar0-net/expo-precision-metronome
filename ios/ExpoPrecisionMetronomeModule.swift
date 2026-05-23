@@ -1,7 +1,7 @@
 import ExpoModulesCore
 
-private let BPM_MIN: Double = 20
-private let BPM_MAX: Double = 300
+private let bpmMin: Double = 20
+private let bpmMax: Double = 300
 
 public class ExpoPrecisionMetronomeModule: Module {
     private var engine: MetronomeEngine?
@@ -28,12 +28,9 @@ public class ExpoPrecisionMetronomeModule: Module {
         }
 
         AsyncFunction("start") { (bpm: Double) in
-            guard bpm >= BPM_MIN, bpm <= BPM_MAX else {
-                throw NSError(
-                    domain: "ExpoPrecisionMetronome",
-                    code: 1,
-                    userInfo: [NSLocalizedDescriptionKey: "BPM must be between \(Int(BPM_MIN)) and \(Int(BPM_MAX)), got \(bpm)"]
-                )
+            guard bpm >= bpmMin, bpm <= bpmMax else {
+                let msg = "BPM must be between \(Int(bpmMin)) and \(Int(bpmMax)), got \(bpm)"
+                throw NSError(domain: "ExpoPrecisionMetronome", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
             }
             try self.engine?.start(bpm: bpm)
         }
@@ -43,12 +40,9 @@ public class ExpoPrecisionMetronomeModule: Module {
         }
 
         AsyncFunction("setBpm") { (bpm: Double) in
-            guard bpm >= BPM_MIN, bpm <= BPM_MAX else {
-                throw NSError(
-                    domain: "ExpoPrecisionMetronome",
-                    code: 1,
-                    userInfo: [NSLocalizedDescriptionKey: "BPM must be between \(Int(BPM_MIN)) and \(Int(BPM_MAX)), got \(bpm)"]
-                )
+            guard bpm >= bpmMin, bpm <= bpmMax else {
+                let msg = "BPM must be between \(Int(bpmMin)) and \(Int(bpmMax)), got \(bpm)"
+                throw NSError(domain: "ExpoPrecisionMetronome", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
             }
             self.engine?.setBpm(bpm: bpm)
         }

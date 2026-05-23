@@ -20,10 +20,10 @@ enum ClickSynthesizer {
     ) {
         guard count > 0 else { return }
         let twoPiF = 2.0 * Double.pi * frequency
-        for i in 0..<count {
-            let t = Double(clickPhase + i) / sampleRate
-            let amplitude = exp(-t / decayTau)
-            buffer[startFrame + i] += Float(sin(twoPiF * t) * amplitude)
+        for idx in 0..<count {
+            let sampleTime = Double(clickPhase + idx) / sampleRate
+            let amplitude = exp(-sampleTime / decayTau)
+            buffer[startFrame + idx] += Float(sin(twoPiF * sampleTime) * amplitude)
         }
     }
 }
