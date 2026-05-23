@@ -47,7 +47,7 @@
     "*.{js,mjs,json,md}": [
       "prettier --write"
     ],
-    "*.{kt,kts}": [
+    "android/src/**/*.{kt,kts}": [
       "ktlint --format"
     ]
   },
