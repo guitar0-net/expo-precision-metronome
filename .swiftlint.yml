@@ -3,6 +3,7 @@ included:
 
 excluded:
   - ios/Tests
+  - ios/.build
   - example
 
 # Rules disabled because they conflict with Expo Modules API patterns

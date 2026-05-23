@@ -10,15 +10,16 @@
     "lint": "expo-module lint",
     "lint:kt": "cd example/android && ./gradlew :expo-precision-metronome:ktlintCheck --no-daemon",
     "lint:swift": "swiftlint lint --strict",
+    "test:swift": "swift test --package-path ios",
+    "test:android": "cd example/android && ./gradlew :expo-precision-metronome:test --no-daemon",
+    "test:android:connected": "cd example/android && ./gradlew :expo-precision-metronome:connectedAndroidTest --no-daemon",
     "lint:android": "cd example/android && ./gradlew :expo-precision-metronome:lint --no-daemon",
     "type:check": "expo-module typecheck",
     "test": "expo-module test",
     "check": "npm run lint && npm run type:check && npm run test",
     "prepare": "expo-module prepare && husky",
     "prepublishOnly": "expo-module prepublishOnly",
-    "expo-module": "expo-module",
-    "open:ios": "xed example/ios",
-    "open:android": "open -a \"Android Studio\" example/android"
+    "expo-module": "expo-module"
   },
   "keywords": [
     "react-native",
@@ -46,7 +47,7 @@
     "*.{js,mjs,json,md}": [
       "prettier --write"
     ],
-    "*.{kt,kts}": [
+    "android/src/**/*.{kt,kts}": [
       "ktlint --format"
     ]
   },

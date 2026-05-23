@@ -2,52 +2,55 @@ package net.guitar0.metronome
 
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
-import java.net.URL
+
+private const val BPM_MIN = 20.0
+private const val BPM_MAX = 300.0
 
 class ExpoPrecisionMetronomeModule : Module() {
-    // Each module class must implement the definition function. The definition consists of components
-    // that describes the module's functionality and behavior.
-    // See https://docs.expo.dev/modules/module-api for more details about available components.
+    private var engine: MetronomeEngine? = null
+
     override fun definition() = ModuleDefinition {
-        // Sets the name of the module that JavaScript code will use to refer to the module. Takes a string as an argument.
-        // Can be inferred from module's class name, but it's recommended to set it explicitly for clarity.
-        // The module will be accessible from `requireNativeModule('ExpoPrecisionMetronome')` in JavaScript.
         Name("ExpoPrecisionMetronome")
 
-        // Defines constant property on the module.
-        Constant("PI") {
-            Math.PI
-        }
+        Events("onBeat", "onStop")
 
-        // Defines event names that the module can send to JavaScript.
-        Events("onChange")
-
-        // Defines a JavaScript synchronous function that runs the native code on the JavaScript thread.
-        Function("hello") {
-            "Hello world! 👋"
-        }
-
-        // Defines a JavaScript function that always returns a Promise and whose native code
-        // is by default dispatched on the different thread than the JavaScript runtime runs on.
-        AsyncFunction("setValueAsync") { value: String ->
-            // Send an event to JavaScript.
-            sendEvent(
-                "onChange",
-                mapOf(
-                    "value" to value
-                )
-            )
-        }
-
-        // Enables the module to be used as a native view. Definition components that are accepted as part of
-        // the view definition: Prop, Events.
-        View(ExpoPrecisionMetronomeView::class) {
-            // Defines a setter for the `url` prop.
-            Prop("url") { view: ExpoPrecisionMetronomeView, url: URL ->
-                view.webView.loadUrl(url.toString())
+        OnCreate {
+            val context =
+                requireNotNull(
+                    appContext.currentActivity?.applicationContext
+                        ?: appContext.reactContext?.applicationContext
+                ) { "Application context not available" }
+            engine = MetronomeEngine(context) { eventName, payload ->
+                sendEvent(eventName, payload)
             }
-            // Defines an event that the view can send to JavaScript.
-            Events("onLoad")
+        }
+
+        OnDestroy {
+            engine?.stop(null)
+            engine?.destroy()
+            engine = null
+        }
+
+        AsyncFunction("start") { bpm: Double ->
+            if (bpm < BPM_MIN || bpm > BPM_MAX) {
+                throw IllegalArgumentException(
+                    "BPM must be between ${BPM_MIN.toInt()} and ${BPM_MAX.toInt()}, got $bpm"
+                )
+            }
+            engine?.start(bpm)
+        }
+
+        AsyncFunction("stop") {
+            engine?.stop("explicit")
+        }
+
+        AsyncFunction("setBpm") { bpm: Double ->
+            if (bpm < BPM_MIN || bpm > BPM_MAX) {
+                throw IllegalArgumentException(
+                    "BPM must be between ${BPM_MIN.toInt()} and ${BPM_MAX.toInt()}, got $bpm"
+                )
+            }
+            engine?.setBpm(bpm)
         }
     }
 }

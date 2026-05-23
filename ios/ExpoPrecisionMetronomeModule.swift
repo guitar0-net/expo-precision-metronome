@@ -1,48 +1,50 @@
 import ExpoModulesCore
 
+private let bpmMin: Double = 20
+private let bpmMax: Double = 300
+
 public class ExpoPrecisionMetronomeModule: Module {
-  // Each module class must implement the definition function. The definition consists of components
-  // that describes the module's functionality and behavior.
-  // See https://docs.expo.dev/modules/module-api for more details about available components.
-  public func definition() -> ModuleDefinition {
-    // Sets the name of the module that JavaScript code will use to refer to the module. Takes a string as an argument.
-    // Can be inferred from module's class name, but it's recommended to set it explicitly for clarity.
-    // The module will be accessible from `requireNativeModule('ExpoPrecisionMetronome')` in JavaScript.
-    Name("ExpoPrecisionMetronome")
+    private var engine: MetronomeEngine?
 
-    // Defines constant property on the module.
-    Constant("PI") {
-      Double.pi
-    }
+    public func definition() -> ModuleDefinition {
+        Name("ExpoPrecisionMetronome")
 
-    // Defines event names that the module can send to JavaScript.
-    Events("onChange")
+        Events("onBeat", "onStop")
 
-    // Defines a JavaScript synchronous function that runs the native code on the JavaScript thread.
-    Function("hello") {
-      return "Hello world! 👋"
-    }
-
-    // Defines a JavaScript function that always returns a Promise and whose native code
-    // is by default dispatched on the different thread than the JavaScript runtime runs on.
-    AsyncFunction("setValueAsync") { (value: String) in
-      // Send an event to JavaScript.
-      self.sendEvent("onChange", [
-        "value": value
-      ])
-    }
-
-    // Enables the module to be used as a native view. Definition components that are accepted as part of the
-    // view definition: Prop, Events.
-    View(ExpoPrecisionMetronomeView.self) {
-      // Defines a setter for the `url` prop.
-      Prop("url") { (view: ExpoPrecisionMetronomeView, url: URL) in
-        if view.webView.url != url {
-          view.webView.load(URLRequest(url: url))
+        OnCreate {
+            let eng = MetronomeEngine()
+            eng.beatHandler = { [weak self] beat, timestamp in
+                self?.sendEvent("onBeat", ["beat": beat, "timestamp": timestamp])
+            }
+            eng.stopHandler = { [weak self] reason in
+                self?.sendEvent("onStop", ["reason": reason])
+            }
+            self.engine = eng
         }
-      }
 
-      Events("onLoad")
+        OnDestroy {
+            self.engine?.stop(reason: nil)
+            self.engine = nil
+        }
+
+        AsyncFunction("start") { (bpm: Double) in
+            guard bpm >= bpmMin, bpm <= bpmMax else {
+                let msg = "BPM must be between \(Int(bpmMin)) and \(Int(bpmMax)), got \(bpm)"
+                throw NSError(domain: "ExpoPrecisionMetronome", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
+            }
+            try self.engine?.start(bpm: bpm)
+        }
+
+        AsyncFunction("stop") {
+            self.engine?.stop(reason: "explicit")
+        }
+
+        AsyncFunction("setBpm") { (bpm: Double) in
+            guard bpm >= bpmMin, bpm <= bpmMax else {
+                let msg = "BPM must be between \(Int(bpmMin)) and \(Int(bpmMax)), got \(bpm)"
+                throw NSError(domain: "ExpoPrecisionMetronome", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
+            }
+            self.engine?.setBpm(bpm: bpm)
+        }
     }
-  }
 }
