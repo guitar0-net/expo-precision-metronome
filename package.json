@@ -11,6 +11,8 @@
     "lint:kt": "cd example/android && ./gradlew :expo-precision-metronome:ktlintCheck --no-daemon",
     "lint:swift": "swiftlint lint --strict",
     "test:swift": "swift test --package-path ios",
+    "test:android": "cd example/android && ./gradlew :expo-precision-metronome:test --no-daemon",
+    "test:android:connected": "cd example/android && ./gradlew :expo-precision-metronome:connectedAndroidTest --no-daemon",
     "lint:android": "cd example/android && ./gradlew :expo-precision-metronome:lint --no-daemon",
     "type:check": "expo-module typecheck",
     "test": "expo-module test",
