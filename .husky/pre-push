@@ -1,0 +1,9 @@
+reuse lint
+npm run lint
+npx tsc --noEmit
+npx jest --ci
+npm run lint:kt
+npm run lint:android
+npm run test:android
+npm run lint:swift
+npm run test:swift
