@@ -1,0 +1,105 @@
+# SPDX-FileCopyrightText: 2026 Andrey Kotlyar <kotlyar562@gmail.com>
+#
+# SPDX-License-Identifier: MIT
+
+name: Security
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  HUSKY: "0"
+
+jobs:
+  reuse:
+    name: REUSE compliance
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Check REUSE compliance
+        uses: fsfe/reuse-action@v5
+
+  codeql:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: javascript-typescript
+            runner: ubuntu-latest
+          - language: kotlin
+            runner: ubuntu-latest
+          - language: swift
+            runner: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Select Xcode
+        if: matrix.language == 'swift'
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "16.x"
+
+      - name: Setup JDK 17
+        if: matrix.language == 'kotlin'
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: temurin
+
+      - name: Setup Node with cache
+        if: matrix.language != 'javascript-typescript'
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install root dependencies
+        if: matrix.language != 'javascript-typescript'
+        run: npm ci
+
+      - name: Install example dependencies
+        if: matrix.language != 'javascript-typescript'
+        working-directory: example
+        run: npm ci
+
+      - name: Install CocoaPods dependencies
+        if: matrix.language == 'swift'
+        working-directory: example/ios
+        run: pod install
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+
+      - name: Build (kotlin)
+        if: matrix.language == 'kotlin'
+        working-directory: example/android
+        run: ./gradlew :expo-precision-metronome:assembleDebug --no-daemon
+
+      - name: Autobuild (swift / javascript-typescript)
+        if: matrix.language != 'kotlin'
+        uses: github/codeql-action/autobuild@v4
+
+      - name: Run CodeQL analysis
+        uses: github/codeql-action/analyze@v4
