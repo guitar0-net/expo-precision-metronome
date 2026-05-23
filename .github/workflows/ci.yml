@@ -348,11 +348,28 @@ jobs:
       - name: Run SwiftLint
         run: swiftlint lint --strict
 
+  ios-swift-tests:
+    name: iOS — Swift unit tests
+    runs-on: macos-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "16.x"
+
+      - name: Run Swift tests
+        run: swift test --package-path ios
+
   ios-build:
     name: iOS — build (simulator)
     runs-on: macos-latest
     timeout-minutes: 30
-    needs: [js-build, ios-swiftlint]
+    needs: [js-build, ios-swiftlint, ios-swift-tests]
 
     steps:
       - name: Checkout repository
