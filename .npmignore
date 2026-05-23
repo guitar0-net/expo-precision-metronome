@@ -11,4 +11,35 @@ __tests__
 /android/src/androidTest/
 /android/src/test/
 /android/build/
+/android/.cxx/
 /example/
+
+# TypeScript sources (consumers use build/ only)
+/src/
+
+# Jest mocks
+/mocks/
+
+# iOS tests and Swift package artefacts
+/ios/Tests/
+/ios/Package.swift
+/ios/.build/
+
+# REUSE / licensing meta
+/REUSE.toml
+/LICENSES/
+
+# Project documentation not needed by consumers
+/CLAUDE.md
+/CONTRIBUTING.md
+/CODE_OF_CONDUCT.md
+
+# Dev/tooling config files (hidden files are not covered by /.*/  which only matches dirs)
+/.editorconfig
+/.eslintrc.js
+/.prettierrc
+/.prettierignore
+/.swiftlint.yml
+/eslint.config.js
+/jest.config.js
+/tsconfig.json

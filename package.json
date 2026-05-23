@@ -1,6 +1,6 @@
 {
   "name": "expo-precision-metronome",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "High-precision metronome engine for Expo and React Native with native audio scheduling support.",
   "main": "build/index.js",
   "types": "build/index.d.ts",
@@ -24,16 +24,30 @@
   "keywords": [
     "react-native",
     "expo",
-    "expo-precision-metronome",
-    "ExpoPrecisionMetronome"
+    "expo-module",
+    "metronome",
+    "audio",
+    "bpm",
+    "timing",
+    "music",
+    "native",
+    "ios",
+    "android",
+    "expo-precision-metronome"
   ],
-  "repository": "https://github.com/guitar0-net/expo-precision-metronome",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/guitar0-net/expo-precision-metronome.git"
+  },
   "bugs": {
     "url": "https://github.com/guitar0-net/expo-precision-metronome/issues"
   },
   "author": "Andrey Kotlyar <kotlyar562@gmail.com> (kotlyar-andrey)",
   "license": "MIT",
   "homepage": "https://github.com/guitar0-net/expo-precision-metronome#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "commitlint": {
     "extends": [
       "@commitlint/config-conventional"
@@ -63,8 +77,8 @@
     "react-native": "0.82.1"
   },
   "peerDependencies": {
-    "expo": "*",
-    "react": "*",
-    "react-native": "*"
+    "expo": ">=55.0.0",
+    "react": ">=19.0.0",
+    "react-native": ">=0.82.0"
   }
 }

@@ -17,6 +17,10 @@ path = [
   "example/**",
   "codecov.yml",
   ".github/**",
+  "CHANGELOG.md",
+  "CONTRIBUTING.md",
+  "CODE_OF_CONDUCT.md",
+  "README.md",
 ]
 precedence = "closest"
 SPDX-FileCopyrightText = "2026 Andrey Kotlyar <kotlyar562@gmail.com>"
