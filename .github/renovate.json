@@ -3,6 +3,7 @@
   "extends": ["config:recommended"],
 
   "minimumReleaseAge": "3 days",
+  "prConcurrentLimit": 10,
 
   "osvVulnerabilityAlerts": true,
   "vulnerabilityAlerts": {
@@ -23,31 +24,52 @@
   "packageRules": [
     {
       "matchDepTypes": ["devDependencies"],
-      "groupName": "dev-dependencies",
       "labels": ["dependencies", "npm"]
     },
+
     {
-      "matchPackageNames": ["expo", "expo-*", "@expo/**"],
-      "groupName": "expo",
-      "minimumReleaseAge": "5 days"
-    },
-    {
+      "description": "expo, react-native, and react must stay in sync per the Expo SDK compatibility table. Wait 14 days before raising a PR.",
       "matchPackageNames": [
+        "expo",
+        "expo-module-scripts",
+        "/^expo-/",
+        "/^@expo\\//",
         "react-native",
         "react",
         "@types/react",
         "@types/react-native"
       ],
-      "groupName": "react-native"
+      "groupName": "expo-sdk",
+      "minimumReleaseAge": "14 days",
+      "labels": ["dependencies", "expo-sdk"]
     },
+
     {
-      "matchPackageNames": ["eslint", "eslint-*", "@typescript-eslint/**", "prettier"],
+      "matchPackageNames": [
+        "@commitlint/cli",
+        "@commitlint/config-conventional",
+        "husky",
+        "lint-staged"
+      ],
+      "groupName": "git-hooks-tooling"
+    },
+
+    {
+      "matchPackageNames": [
+        "eslint",
+        "/^eslint-/",
+        "/^@typescript-eslint\\//",
+        "eslint-config-universe",
+        "prettier"
+      ],
       "groupName": "linting"
     },
+
     {
       "matchPackageNames": ["typescript", "ts-node", "tslib"],
       "groupName": "build-tooling"
     },
+
     {
       "matchManagers": ["github-actions"],
       "groupName": "github-actions",

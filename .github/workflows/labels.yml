@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: 2026 Andrey Kotlyar <kotlyar562@gmail.com>
+#
+# SPDX-License-Identifier: MIT
+
+name: Sync Labels
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/labeler.yml"
+      - ".github/workflows/labels.yml"
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  sync:
+    name: Sync Labels
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Create or update labels
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh label create "feature"        --repo "$REPO" --color "a2eeef" --description "New functionality"                       --force
+          gh label create "bug"            --repo "$REPO" --color "d73a4a" --description "Something is broken"                     --force
+          gh label create "security"       --repo "$REPO" --color "e11d48" --description "Security fix or improvement"             --force
+          gh label create "chore"          --repo "$REPO" --color "fef2c0" --description "Maintenance, refactor, docs"             --force
+          gh label create "dependencies"   --repo "$REPO" --color "0075ca" --description "Dependency updates"                     --force
+          gh label create "npm"            --repo "$REPO" --color "cb3837" --description "npm package updates"                    --force
+          gh label create "ci"             --repo "$REPO" --color "f4a261" --description "GitHub Actions updates"                 --force
+          gh label create "breaking-change" --repo "$REPO" --color "b60205" --description "Major version bump"                   --force
+          gh label create "expo-sdk"       --repo "$REPO" --color "000020" --description "Expo SDK + React Native version update" --force
