@@ -180,7 +180,13 @@ jobs:
         with:
           languages: ${{ matrix.language }}
 
-      - name: Autobuild
+      - name: Build (kotlin)
+        if: matrix.language == 'kotlin'
+        working-directory: example/android
+        run: ./gradlew :expo-precision-metronome:assembleDebug --no-daemon
+
+      - name: Autobuild (swift / javascript-typescript)
+        if: matrix.language != 'kotlin'
         uses: github/codeql-action/autobuild@v4
 
       - name: Run CodeQL analysis
@@ -387,6 +393,9 @@ jobs:
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: "16.x"
+
+      - name: Install SwiftLint
+        run: brew install swiftlint
 
       - name: Run SwiftLint
         run: swiftlint lint --strict
