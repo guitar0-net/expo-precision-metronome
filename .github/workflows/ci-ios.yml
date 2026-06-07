@@ -102,8 +102,7 @@ jobs:
             -workspace expoprecisionmetronomeexample.xcworkspace \
             -scheme expoprecisionmetronomeexample \
             -configuration Debug \
-            -sdk iphonesimulator \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
             -quiet \
             build
