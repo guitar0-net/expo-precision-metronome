@@ -1,5 +1,7 @@
 import ExpoModulesCore
 
+extension SoundPreset: Enumerable {}
+
 private let bpmMin: Double = 20
 private let bpmMax: Double = 300
 
@@ -45,6 +47,10 @@ public class ExpoPrecisionMetronomeModule: Module {
                 throw NSError(domain: "ExpoPrecisionMetronome", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
             }
             self.engine?.setBpm(bpm: bpm)
+        }
+
+        AsyncFunction("setSound") { (preset: SoundPreset) in
+            self.engine?.setSound(preset: preset)
         }
     }
 }
