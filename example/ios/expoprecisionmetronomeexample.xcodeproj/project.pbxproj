@@ -7,20 +7,21 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0229E046F68A4BC884F9A79D /* ClickSynthesizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1037EE6DCC714EBEBD1F0EDD /* ClickSynthesizer.swift */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		170FEB227A1E269BAFAAFBDF /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 9B6F4D0BCB47E4E98F829A82 /* PrivacyInfo.xcprivacy */; };
+		25A1FA51768D43B6A68AB59E /* BeatScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDF6B09945284CA3A008FFEE /* BeatScheduler.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		8485F80FE908993D8AE46697 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 543F3214D78B4618F3A5BB7D /* ExpoModulesProvider.swift */; };
 		9A0520F63B1405727C17E24F /* libPods-expoprecisionmetronomeexample.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E38966607C89B3C729D939DD /* libPods-expoprecisionmetronomeexample.a */; };
 		9AF5C2D60C03499BB369BA55 /* ExpoPrecisionMetronomeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66C2CAC36FF59DA98417AEA1 /* ExpoPrecisionMetronomeTests.swift */; };
-		25A1FA51768D43B6A68AB59E /* BeatScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDF6B09945284CA3A008FFEE /* BeatScheduler.swift */; };
-		0229E046F68A4BC884F9A79D /* ClickSynthesizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1037EE6DCC714EBEBD1F0EDD /* ClickSynthesizer.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		D3B0E1B0BD009C9879FA666B /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 29FEDD887AF575AED4B11544 /* Foundation.framework */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		1037EE6DCC714EBEBD1F0EDD /* ClickSynthesizer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ../ClickSynthesizer.swift; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* expoprecisionmetronomeexample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = expoprecisionmetronomeexample.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = expoprecisionmetronomeexample/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = expoprecisionmetronomeexample/Info.plist; sourceTree = "<group>"; };
@@ -28,12 +29,11 @@
 		29FEDD887AF575AED4B11544 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		543F3214D78B4618F3A5BB7D /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-expoprecisionmetronomeexample/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		66C2CAC36FF59DA98417AEA1 /* ExpoPrecisionMetronomeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ExpoPrecisionMetronomeTests.swift; sourceTree = "<group>"; };
-		CDF6B09945284CA3A008FFEE /* BeatScheduler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ../BeatScheduler.swift; sourceTree = "<group>"; };
-		1037EE6DCC714EBEBD1F0EDD /* ClickSynthesizer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ../ClickSynthesizer.swift; sourceTree = "<group>"; };
 		67FCC23372B4AF47F7373D9D /* Pods-expoprecisionmetronomeexample.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-expoprecisionmetronomeexample.release.xcconfig"; path = "Target Support Files/Pods-expoprecisionmetronomeexample/Pods-expoprecisionmetronomeexample.release.xcconfig"; sourceTree = "<group>"; };
 		9B6F4D0BCB47E4E98F829A82 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = expoprecisionmetronomeexample/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = expoprecisionmetronomeexample/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
+		CDF6B09945284CA3A008FFEE /* BeatScheduler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ../BeatScheduler.swift; sourceTree = "<group>"; };
 		E38966607C89B3C729D939DD /* libPods-expoprecisionmetronomeexample.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-expoprecisionmetronomeexample.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E614302B661FF4D833BF511D /* ExpoPrecisionMetronomeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ExpoPrecisionMetronomeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
