@@ -6,6 +6,13 @@ SPDX-License-Identifier: MIT
 
 # Changelog
 
+## [1.1.0](https://github.com/guitar0-net/expo-precision-metronome/compare/v1.0.0...v1.1.0) (2026-06-07)
+
+
+### Features
+
+* add songs variety ([b505ad8](https://github.com/guitar0-net/expo-precision-metronome/commit/b505ad8e8f48cc38a945a1bc0e122060edbd48a1))
+
 ## [1.0.0](https://github.com/guitar0-net/expo-precision-metronome/releases/tag/v1.0.0) (2026-05-23)
 
 ### Features
