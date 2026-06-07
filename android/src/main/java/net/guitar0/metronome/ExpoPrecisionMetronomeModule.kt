@@ -2,9 +2,19 @@ package net.guitar0.metronome
 
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import expo.modules.kotlin.types.Enumerable
 
 private const val BPM_MIN = 20.0
 private const val BPM_MAX = 300.0
+
+enum class SoundPreset : Enumerable {
+    click,
+    beep,
+    woodblock,
+    rim,
+    hihat,
+    cowbell
+}
 
 class ExpoPrecisionMetronomeModule : Module() {
     private var engine: MetronomeEngine? = null
@@ -51,6 +61,10 @@ class ExpoPrecisionMetronomeModule : Module() {
                 )
             }
             engine?.setBpm(bpm)
+        }
+
+        AsyncFunction("setSound") { preset: SoundPreset ->
+            engine?.setSound(preset.ordinal)
         }
     }
 }

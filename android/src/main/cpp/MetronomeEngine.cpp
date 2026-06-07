@@ -50,6 +50,10 @@ void MetronomeEngine::setBpm(double bpm) {
     currentBpm_.store(bpm, std::memory_order_relaxed);
 }
 
+void MetronomeEngine::setSound(int presetIndex) {
+    currentPreset_.store(presetIndex, std::memory_order_relaxed);
+}
+
 void MetronomeEngine::openStream() {
     oboe::AudioStreamBuilder builder;
     oboe::Result result = builder
@@ -68,7 +72,6 @@ void MetronomeEngine::openStream() {
     }
 
     sampleRate_ = static_cast<double>(stream_->getSampleRate());
-    clickDurationSamples_ = ClickSynthesizer::clickDuration(sampleRate_);
     currentSample_ = 0;
     clickPhase_ = -1;
     scheduler_.reset();
@@ -107,16 +110,20 @@ oboe::DataCallbackResult MetronomeEngine::onAudioReady(
     if (clickPhase_ >= 0) {
         int remaining = clickDurationSamples_ - clickPhase_;
         int toWrite = std::min(remaining, static_cast<int>(numFrames));
-        ClickSynthesizer::render(buffer, 0, clickPhase_, toWrite, sampleRate_);
+        ClickSynthesizer::render(buffer, 0, clickPhase_, toWrite, sampleRate_, clickPreset_);
         clickPhase_ += toWrite;
         if (clickPhase_ >= clickDurationSamples_) clickPhase_ = -1;
     }
 
     auto beat = scheduler_.nextBeat(static_cast<int>(numFrames), bufferStart, bpm, sampleRate_);
     if (beat.offset >= 0) {
-        int toWrite = std::min(clickDurationSamples_, static_cast<int>(numFrames) - beat.offset);
-        ClickSynthesizer::render(buffer, beat.offset, 0, toWrite, sampleRate_);
-        clickPhase_ = (toWrite < clickDurationSamples_) ? toWrite : -1;
+        SoundPreset preset = static_cast<SoundPreset>(currentPreset_.load(std::memory_order_relaxed));
+        int dur = ClickSynthesizer::clickDuration(sampleRate_, preset);
+        int toWrite = std::min(dur, static_cast<int>(numFrames) - beat.offset);
+        ClickSynthesizer::render(buffer, beat.offset, 0, toWrite, sampleRate_, preset);
+        clickDurationSamples_ = dur;
+        clickPreset_ = preset;
+        clickPhase_ = (toWrite < dur) ? toWrite : -1;
 
         // Audio-clock timestamp: seconds elapsed since stream open.
         double beatTimestamp = static_cast<double>(bufferStart + beat.offset) / sampleRate_;

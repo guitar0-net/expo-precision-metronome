@@ -34,4 +34,10 @@ Java_net_guitar0_metronome_MetronomeEngine_nativeSetBpm(
     reinterpret_cast<MetronomeEngine*>(handle)->setBpm(bpm);
 }
 
+JNIEXPORT void JNICALL
+Java_net_guitar0_metronome_MetronomeEngine_nativeSetSound(
+    JNIEnv* /*env*/, jobject /*thiz*/, jlong handle, jint presetIndex) {
+    reinterpret_cast<MetronomeEngine*>(handle)->setSound(static_cast<int>(presetIndex));
+}
+
 } // extern "C"

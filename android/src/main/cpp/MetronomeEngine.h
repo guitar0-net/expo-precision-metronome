@@ -4,6 +4,7 @@
 #include <jni.h>
 #include <memory>
 #include "BeatScheduler.h"
+#include "ClickSynthesizer.h"
 
 class MetronomeEngine : public oboe::AudioStreamDataCallback,
                         public oboe::AudioStreamErrorCallback {
@@ -15,6 +16,8 @@ public:
     void start(double bpm);
     // Updates BPM without touching the stream. No-op if not running.
     void setBpm(double bpm);
+    // Updates sound preset without touching the stream. Takes effect on the next beat onset.
+    void setSound(int presetIndex);
     // Idempotent.
     void stop();
 
@@ -39,12 +42,15 @@ private:
     BeatScheduler scheduler_;
 
     // Written from the JS/Kotlin thread, read from the audio thread.
-    // std::atomic<double> load/store is lock-free on ARM64 (hardware atomic).
+    // std::atomic load/store is lock-free on ARM64 (hardware atomic).
     std::atomic<double> currentBpm_{120.0};
+    std::atomic<int>    currentPreset_{0};  // SoundPreset int value
 
     int64_t currentSample_ = 0;
     double sampleRate_ = 44100.0;
+    // Duration and preset captured at click onset; audio-thread-only.
     int clickDurationSamples_ = 0;
+    SoundPreset clickPreset_ = SoundPreset::Click;
     int clickPhase_ = -1; // -1 = no active click, >=0 = samples written so far
     std::atomic<bool> running_{false};
 };
