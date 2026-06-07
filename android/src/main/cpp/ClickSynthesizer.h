@@ -10,6 +10,13 @@ enum class SoundPreset : int {
     Hihat     = 4,
     Cowbell   = 5,
 };
+// These values must match Kotlin SoundPreset.ordinal — reordering either enum breaks the JNI bridge.
+static_assert(static_cast<int>(SoundPreset::Click)     == 0, "ordinal mismatch: Click");
+static_assert(static_cast<int>(SoundPreset::Beep)      == 1, "ordinal mismatch: Beep");
+static_assert(static_cast<int>(SoundPreset::Woodblock) == 2, "ordinal mismatch: Woodblock");
+static_assert(static_cast<int>(SoundPreset::Rim)       == 3, "ordinal mismatch: Rim");
+static_assert(static_cast<int>(SoundPreset::Hihat)     == 4, "ordinal mismatch: Hihat");
+static_assert(static_cast<int>(SoundPreset::Cowbell)   == 5, "ordinal mismatch: Cowbell");
 
 namespace ClickSynthesizer {
 

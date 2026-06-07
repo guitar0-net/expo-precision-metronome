@@ -21,7 +21,7 @@ final class MetronomeEngine {
     // On ARM64 (all iOS devices), an aligned 8-byte load/store is a single LDR/STR —
     // hardware-atomic, no torn reads possible. No synchronisation primitive needed.
     private var currentBPM: Double = 120
-    private var currentPresetIndex: Int = 0  // index into SoundPreset.allCases
+    private var currentPresetIndex: Int = 0  // same guarantee: aligned Int = 8 bytes on ARM64
 
     var isRunning: Bool { engine?.isRunning == true }
 

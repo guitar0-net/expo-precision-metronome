@@ -124,7 +124,7 @@ class ClickSynthesizerTest {
                 x = x * 1664525u + 1013904223u
                 x = (x xor (x shr 16)) * 0x45d9f3b7u
                 x = x xor (x shr 16)
-                val noise = (x.toFloat() / (1u shl 31).toFloat()) * 2.0f - 1.0f
+                val noise = ((x shr 1).toFloat() / (1u shl 31).toFloat()) * 2.0f - 1.0f
                 buffer[startFrame + i] += noise * amp
             }
         }
