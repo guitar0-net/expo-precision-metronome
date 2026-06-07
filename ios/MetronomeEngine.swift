@@ -11,14 +11,17 @@ final class MetronomeEngine {
 
     // Accessed exclusively from the audio render thread after start().
     private var sampleRate: Double = 44_100
-    private var clickDurationSamples: Int = 0
     private var currentSample: Int64 = 0  // relative to engine start
     private var clickPhase: Int = -1      // -1 = no active click, >=0 = samples written so far
+    // Duration and preset of the currently-playing click; captured at click onset.
+    private var clickDurationSamples: Int = 0
+    private var clickPreset: SoundPreset = .click
 
     // Written from the JS thread, read from the audio render thread.
     // On ARM64 (all iOS devices), an aligned 8-byte load/store is a single LDR/STR —
     // hardware-atomic, no torn reads possible. No synchronisation primitive needed.
     private var currentBPM: Double = 120
+    private var currentPresetIndex: Int = 0  // same guarantee: aligned Int = 8 bytes on ARM64
 
     var isRunning: Bool { engine?.isRunning == true }
 
@@ -36,6 +39,10 @@ final class MetronomeEngine {
 
     func setBpm(bpm: Double) {
         currentBPM = bpm
+    }
+
+    func setSound(preset: SoundPreset) {
+        currentPresetIndex = SoundPreset.allCases.firstIndex(of: preset) ?? 0
     }
 
     /// `reason: nil` suppresses the onStop event — used by OnDestroy where JS is gone.
@@ -61,7 +68,6 @@ final class MetronomeEngine {
         let sr = hwRate > 0 ? hwRate : 44_100
 
         sampleRate = sr
-        clickDurationSamples = ClickSynthesizer.clickDuration(sampleRate: sr)
         currentSample = 0
         clickPhase = -1
         scheduler.reset()
@@ -111,7 +117,8 @@ final class MetronomeEngine {
                 startFrame: 0,
                 clickPhase: clickPhase,
                 count: toWrite,
-                sampleRate: sampleRate
+                sampleRate: sampleRate,
+                preset: clickPreset
             )
             clickPhase += toWrite
             if clickPhase >= clickDurationSamples { clickPhase = -1 }
@@ -123,15 +130,20 @@ final class MetronomeEngine {
             bpm: bpm,
             sampleRate: sampleRate
         ) {
-            let toWrite = min(clickDurationSamples, frameCount - offset)
+            let preset = SoundPreset.allCases[currentPresetIndex]
+            let dur = ClickSynthesizer.clickDuration(sampleRate: sampleRate, preset: preset)
+            let toWrite = min(dur, frameCount - offset)
             ClickSynthesizer.render(
                 into: buffer,
                 startFrame: offset,
                 clickPhase: 0,
                 count: toWrite,
-                sampleRate: sampleRate
+                sampleRate: sampleRate,
+                preset: preset
             )
-            clickPhase = toWrite < clickDurationSamples ? toWrite : -1
+            clickDurationSamples = dur
+            clickPreset = preset
+            clickPhase = toWrite < dur ? toWrite : -1
 
             let beatTimestamp = Double(bufferStart + Int64(offset)) / sampleRate
             let bn = beatNumber

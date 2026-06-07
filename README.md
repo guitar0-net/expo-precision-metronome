@@ -21,6 +21,7 @@ SPDX-License-Identifier: MIT
 - `onBeat` event with beat index and high-resolution timestamp
 - `onStop` event distinguishing explicit stop from audio interruption (phone call, alarm, etc.)
 - Live BPM change without restarting the engine
+- 6 synthesized sound presets switchable on the fly (`click`, `beep`, `woodblock`, `rim`, `hihat`, `cowbell`)
 - JSI bridge — no JSON serialization overhead
 - Full TypeScript types included
 
@@ -46,7 +47,7 @@ npx expo install expo-precision-metronome
 
 ```tsx
 import { useEffect } from "react";
-import { start, stop, setBpm } from "expo-precision-metronome";
+import { start, stop, setBpm, setSound } from "expo-precision-metronome";
 import ExpoPrecisionMetronomeModule from "expo-precision-metronome";
 
 export default function Metronome() {
@@ -62,6 +63,7 @@ export default function Metronome() {
       console.log(`Stopped: ${reason}`);
     });
 
+    setSound("woodblock");
     start(120);
 
     return () => {
@@ -88,6 +90,10 @@ Stops the metronome. Emits `onStop` with `reason: "explicit"`.
 #### `setBpm(bpm: number): Promise<void>`
 
 Changes the tempo on the fly without stopping the engine. Throws `RangeError` if `bpm` is outside `BPM_MIN`–`BPM_MAX`.
+
+#### `setSound(sound: SoundPreset): Promise<void>`
+
+Switches the click sound without stopping the engine. The new preset takes effect on the next beat. Throws `TypeError` if `sound` is not one of the valid presets. Default is `"click"`.
 
 ---
 
@@ -116,10 +122,11 @@ Emitted when the metronome stops for any reason.
 
 ### Constants
 
-| Constant  | Value | Description       |
-| --------- | ----- | ----------------- |
-| `BPM_MIN` | `20`  | Minimum valid BPM |
-| `BPM_MAX` | `300` | Maximum valid BPM |
+| Constant        | Value                                                  | Description           |
+| --------------- | ------------------------------------------------------ | --------------------- |
+| `BPM_MIN`       | `20`                                                   | Minimum valid BPM     |
+| `BPM_MAX`       | `300`                                                  | Maximum valid BPM     |
+| `SOUND_PRESETS` | `["click","beep","woodblock","rim","hihat","cowbell"]` | All available presets |
 
 ---
 
@@ -134,7 +141,20 @@ type BeatEventPayload = {
 type StopEventPayload = {
   reason: "explicit" | "interruption";
 };
+
+type SoundPreset = "click" | "beep" | "woodblock" | "rim" | "hihat" | "cowbell";
 ```
+
+#### Sound presets
+
+| Preset      | Character               | Duration |
+| ----------- | ----------------------- | -------- |
+| `click`     | 1 kHz sine, fast decay  | 10 ms    |
+| `beep`      | 880 Hz sine, soft       | 20 ms    |
+| `woodblock` | 400 Hz, very percussive | 8 ms     |
+| `rim`       | 800 + 1600 Hz dual sine | 6 ms     |
+| `hihat`     | Noise burst             | 8 ms     |
+| `cowbell`   | 562 + 845 Hz, long      | 250 ms   |
 
 ## Running the example app
 

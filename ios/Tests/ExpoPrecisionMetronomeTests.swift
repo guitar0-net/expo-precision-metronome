@@ -10,7 +10,7 @@ import Testing
         var buffer = [Float](repeating: 0, count: bufferSize)
 
         buffer.withUnsafeMutableBufferPointer { ptr in
-            ClickSynthesizer.render(into: ptr.baseAddress!, startFrame: startFrame, clickPhase: 0, count: 20, sampleRate: 44_100)
+            ClickSynthesizer.render(into: ptr.baseAddress!, startFrame: startFrame, clickPhase: 0, count: 20, sampleRate: 44_100, preset: .click)
         }
 
         for i in 0..<startFrame {
@@ -24,7 +24,7 @@ import Testing
         var buffer = [Float](repeating: 0, count: bufferSize)
 
         buffer.withUnsafeMutableBufferPointer { ptr in
-            ClickSynthesizer.render(into: ptr.baseAddress!, startFrame: startFrame, clickPhase: 0, count: 20, sampleRate: 44_100)
+            ClickSynthesizer.render(into: ptr.baseAddress!, startFrame: startFrame, clickPhase: 0, count: 20, sampleRate: 44_100, preset: .click)
         }
 
         // clickPhase 0 → sin(0) = 0, so startFrame itself is zero; every subsequent
@@ -38,15 +38,32 @@ import Testing
     }
 
     @Test(arguments: [44_100.0, 48_000.0])
-    func clickDurationDoesNotExceedTenMilliseconds(sampleRate: Double) {
-        let maxSamples = Int(ceil(0.010 * sampleRate))
-        let duration = ClickSynthesizer.clickDuration(sampleRate: sampleRate)
-        #expect(duration <= maxSamples, "\(duration) samples exceeds 10 ms (\(maxSamples) samples at \(sampleRate) Hz)")
+    func clickDurationIsPositiveForAllPresets(sampleRate: Double) {
+        for preset in SoundPreset.allCases {
+            let dur = ClickSynthesizer.clickDuration(sampleRate: sampleRate, preset: preset)
+            #expect(dur > 0, "\(preset) clickDuration should be positive at \(sampleRate) Hz")
+        }
     }
 
-    @Test func clickDurationIsPositive() {
-        #expect(ClickSynthesizer.clickDuration(sampleRate: 44_100) > 0)
-        #expect(ClickSynthesizer.clickDuration(sampleRate: 48_000) > 0)
+    @Test func cowbellIsLongerThanClick() {
+        let sr = 44_100.0
+        #expect(
+            ClickSynthesizer.clickDuration(sampleRate: sr, preset: .cowbell) >
+            ClickSynthesizer.clickDuration(sampleRate: sr, preset: .click),
+            "cowbell (250 ms) should be longer than click (10 ms)"
+        )
+    }
+
+    @Test(arguments: SoundPreset.allCases)
+    func eachPresetRendersNonZeroSamples(preset: SoundPreset) {
+        let sr = 44_100.0
+        let count = ClickSynthesizer.clickDuration(sampleRate: sr, preset: preset)
+        var buffer = [Float](repeating: 0, count: count)
+        buffer.withUnsafeMutableBufferPointer { ptr in
+            ClickSynthesizer.render(into: ptr.baseAddress!, startFrame: 0, clickPhase: 1, count: count, sampleRate: sr, preset: preset)
+        }
+        let anyNonZero = buffer.contains { $0 != 0 }
+        #expect(anyNonZero, "\(preset) render produced all-zero output")
     }
 
     @Test func renderAccumulatesIntoBuffer() {
@@ -55,11 +72,11 @@ import Testing
         var twoPass    = [Float](repeating: 0, count: count)
 
         singlePass.withUnsafeMutableBufferPointer { ptr in
-            ClickSynthesizer.render(into: ptr.baseAddress!, startFrame: 0, clickPhase: 0, count: count, sampleRate: 44_100)
+            ClickSynthesizer.render(into: ptr.baseAddress!, startFrame: 0, clickPhase: 0, count: count, sampleRate: 44_100, preset: .click)
         }
         twoPass.withUnsafeMutableBufferPointer { ptr in
-            ClickSynthesizer.render(into: ptr.baseAddress!, startFrame: 0, clickPhase: 0, count: count, sampleRate: 44_100)
-            ClickSynthesizer.render(into: ptr.baseAddress!, startFrame: 0, clickPhase: 0, count: count, sampleRate: 44_100)
+            ClickSynthesizer.render(into: ptr.baseAddress!, startFrame: 0, clickPhase: 0, count: count, sampleRate: 44_100, preset: .click)
+            ClickSynthesizer.render(into: ptr.baseAddress!, startFrame: 0, clickPhase: 0, count: count, sampleRate: 44_100, preset: .click)
         }
 
         for i in 0..<count {

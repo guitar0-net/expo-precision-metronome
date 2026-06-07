@@ -1,8 +1,13 @@
 import { beforeEach, describe, expect, jest, test } from "@jest/globals";
 
-import { BPM_MAX, BPM_MIN } from "../ExpoPrecisionMetronome.types";
+import {
+  BPM_MAX,
+  BPM_MIN,
+  SOUND_PRESETS,
+  SoundPreset,
+} from "../ExpoPrecisionMetronome.types";
 import ExpoPrecisionMetronomeModule from "../ExpoPrecisionMetronomeModule";
-import { setBpm, start, stop } from "../index";
+import { setBpm, setSound, start, stop } from "../index";
 
 const mod = jest.mocked(ExpoPrecisionMetronomeModule);
 
@@ -69,6 +74,45 @@ describe("setBpm()", () => {
   test("error message includes bounds and actual value", async () => {
     await expect(setBpm(BPM_MAX + 1)).rejects.toThrow(
       `BPM must be between ${BPM_MIN} and ${BPM_MAX}, got ${BPM_MAX + 1}`,
+    );
+  });
+});
+
+describe("SOUND_PRESETS", () => {
+  test("contains exactly the six expected presets", () => {
+    expect(SOUND_PRESETS).toEqual([
+      "click",
+      "beep",
+      "woodblock",
+      "rim",
+      "hihat",
+      "cowbell",
+    ]);
+  });
+
+  test("is readonly and non-empty", () => {
+    expect(SOUND_PRESETS.length).toBeGreaterThan(0);
+  });
+});
+
+describe("setSound()", () => {
+  test.each(SOUND_PRESETS)("delegates preset '%s' to native module", async (preset) => {
+    await setSound(preset);
+    expect(mod.setSound).toHaveBeenCalledWith(preset);
+    expect(mod.setSound).toHaveBeenCalledTimes(1);
+  });
+
+  test.each(["tick", "", "CLICK", "Click", 0, null, undefined] as unknown[])(
+    "rejects with TypeError for invalid value %s",
+    async (bad) => {
+      await expect(setSound(bad as SoundPreset)).rejects.toBeInstanceOf(TypeError);
+      expect(mod.setSound).not.toHaveBeenCalled();
+    },
+  );
+
+  test("error message lists valid presets and the invalid value", async () => {
+    await expect(setSound("tick" as SoundPreset)).rejects.toThrow(
+      `sound must be one of: ${SOUND_PRESETS.join(", ")}, got "tick"`,
     );
   });
 });

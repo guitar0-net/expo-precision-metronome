@@ -45,6 +45,10 @@ internal class MetronomeEngine(
         nativeSetBpm(nativeHandle, bpm)
     }
 
+    fun setSound(presetIndex: Int) {
+        nativeSetSound(nativeHandle, presetIndex)
+    }
+
     fun destroy() {
         if (nativeHandle != 0L) {
             nativeDestroy(nativeHandle)
@@ -113,6 +117,7 @@ internal class MetronomeEngine(
     private external fun nativeStart(handle: Long, bpm: Double)
     private external fun nativeStop(handle: Long)
     private external fun nativeSetBpm(handle: Long, bpm: Double)
+    private external fun nativeSetSound(handle: Long, presetIndex: Int)
 
     companion object {
         init {

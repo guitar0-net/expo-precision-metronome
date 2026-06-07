@@ -11,6 +11,7 @@ indent_style = space
 indent_size = 4
 ktlint_code_style = android_studio
 ktlint_standard_no-wildcard-imports = enabled
+ktlint_standard_enum-entry-name-case = disabled
 
 [*.{ts,tsx,js,mjs,json}]
 indent_style = space
