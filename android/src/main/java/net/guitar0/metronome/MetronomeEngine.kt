@@ -49,6 +49,10 @@ internal class MetronomeEngine(
         nativeSetSound(nativeHandle, presetIndex)
     }
 
+    fun setPattern(encoded: Long) {
+        nativeSetPattern(nativeHandle, encoded)
+    }
+
     fun destroy() {
         if (nativeHandle != 0L) {
             nativeDestroy(nativeHandle)
@@ -58,8 +62,10 @@ internal class MetronomeEngine(
 
     // Called from JNI on the Oboe audio thread.
     @Keep
-    fun onBeat(beat: Int, timestamp: Double) {
-        mainHandler.post { onEvent("onBeat", mapOf("beat" to beat, "timestamp" to timestamp)) }
+    fun onBeat(beat: Int, timestamp: Double, accent: String) {
+        mainHandler.post {
+            onEvent("onBeat", mapOf("beat" to beat, "timestamp" to timestamp, "accent" to accent))
+        }
     }
 
     // Called from JNI when the Oboe stream encounters an unrecoverable error (e.g. device disconnect).
@@ -118,8 +124,25 @@ internal class MetronomeEngine(
     private external fun nativeStop(handle: Long)
     private external fun nativeSetBpm(handle: Long, bpm: Double)
     private external fun nativeSetSound(handle: Long, presetIndex: Int)
+    private external fun nativeSetPattern(handle: Long, encoded: Long)
 
     companion object {
+        // Encoding: bits 32-36 = (length-1), bits 0-31 = 16×2-bit accent codes.
+        // 0=strong, 1=normal, 2=muted.
+        fun encodePattern(pattern: List<String>): Long {
+            val len = (pattern.size - 1).toLong() shl 32
+            var bits = 0L
+            pattern.forEachIndexed { i, accent ->
+                val code = when (accent) {
+                    "strong" -> 0L
+                    "muted" -> 2L
+                    else -> 1L
+                }
+                bits = bits or (code shl (i * 2))
+            }
+            return len or bits
+        }
+
         init {
             System.loadLibrary("metronome")
         }
