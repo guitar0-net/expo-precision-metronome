@@ -7,4 +7,5 @@ module.exports = {
   stop: jest.fn(async () => {}),
   setBpm: jest.fn(async () => {}),
   setSound: jest.fn(async () => {}),
+  setPattern: jest.fn(async () => {}),
 };

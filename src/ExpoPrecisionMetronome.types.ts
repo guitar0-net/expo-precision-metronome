@@ -11,9 +11,20 @@ export const SOUND_PRESETS = [
 ] as const;
 export type SoundPreset = (typeof SOUND_PRESETS)[number];
 
+export const BEAT_ACCENTS = ["strong", "normal", "muted"] as const;
+export type BeatAccent = (typeof BEAT_ACCENTS)[number];
+export const BEAT_PATTERN_MAX_LENGTH = 16;
+export const DEFAULT_BEAT_PATTERN: readonly BeatAccent[] = [
+  "strong",
+  "normal",
+  "normal",
+  "normal",
+];
+
 export type BeatEventPayload = {
   beat: number;
   timestamp: number;
+  accent: BeatAccent;
 };
 
 export type StopEventPayload = {
