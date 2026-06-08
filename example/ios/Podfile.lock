@@ -57,7 +57,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - ExpoPrecisionMetronome (1.0.0):
+  - ExpoPrecisionMetronome (1.1.0):
     - ExpoModulesCore
   - FBLazyVector (0.81.5)
   - hermes-engine (0.81.5):
@@ -1933,7 +1933,7 @@ SPEC CHECKSUMS:
   ExpoFont: c625dbd97ed57e9089b172b2a7bb99003d074664
   ExpoKeepAwake: 44bf6715bc1d2ddb17afe19d927cd039cda123f0
   ExpoModulesCore: 92b8d81c177eb970ee6e01b86e85bf296533c179
-  ExpoPrecisionMetronome: 1bf9ef8ded97859de54fc20f99077636e529e1ff
+  ExpoPrecisionMetronome: cd1cc939015a7170dbb5c453dc2ad03bb944d723
   FBLazyVector: e95a291ad2dadb88e42b06e0c5fb8262de53ec12
   hermes-engine: 9f4dfe93326146a1c99eb535b1cb0b857a3cd172
   RCTDeprecation: 943572d4be82d480a48f4884f670135ae30bf990
