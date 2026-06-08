@@ -18,10 +18,11 @@ SPDX-License-Identifier: MIT
 ## Features
 
 - Sample-accurate beat scheduling via AVAudioEngine (iOS) and [Oboe](https://github.com/google/oboe) (Android)
-- `onBeat` event with beat index and high-resolution timestamp
+- `onBeat` event with beat index, high-resolution timestamp, and accent level
 - `onStop` event distinguishing explicit stop from audio interruption (phone call, alarm, etc.)
 - Live BPM change without restarting the engine
 - 6 synthesized sound presets switchable on the fly (`click`, `beep`, `woodblock`, `rim`, `hihat`, `cowbell`)
+- Accent patterns — up to 16 beats, each independently `strong`, `normal`, or `muted`, changeable on the fly
 - JSI bridge — no JSON serialization overhead
 - Full TypeScript types included
 
@@ -47,15 +48,15 @@ npx expo install expo-precision-metronome
 
 ```tsx
 import { useEffect } from "react";
-import { start, stop, setBpm, setSound } from "expo-precision-metronome";
+import { start, stop, setBpm, setSound, setPattern } from "expo-precision-metronome";
 import ExpoPrecisionMetronomeModule from "expo-precision-metronome";
 
 export default function Metronome() {
   useEffect(() => {
     const beatSub = ExpoPrecisionMetronomeModule.addListener(
       "onBeat",
-      ({ beat, timestamp }) => {
-        console.log(`Beat ${beat} at ${timestamp}s`);
+      ({ beat, timestamp, accent }) => {
+        console.log(`Beat ${beat} (${accent}) at ${timestamp}s`);
       },
     );
 
@@ -64,6 +65,7 @@ export default function Metronome() {
     });
 
     setSound("woodblock");
+    setPattern(["strong", "normal", "normal", "normal"]); // 4/4
     start(120);
 
     return () => {
@@ -73,6 +75,57 @@ export default function Metronome() {
     };
   }, []);
 }
+```
+
+### Accent patterns
+
+`setPattern()` defines a repeating accent pattern of up to 16 beats. Each beat is independently set to one of three levels:
+
+| Level    | Character                                   |
+| -------- | ------------------------------------------- |
+| `strong` | Higher pitch, louder, punchier decay        |
+| `normal` | Standard click                              |
+| `muted`  | Ghost note — same timbre at ~12 % amplitude |
+
+The pattern loops automatically. It takes effect immediately without restarting the engine.
+
+```tsx
+import { setPattern } from "expo-precision-metronome";
+
+// 4/4 — downbeat accent (this is the default)
+await setPattern(["strong", "normal", "normal", "normal"]);
+
+// 3/4 waltz
+await setPattern(["strong", "normal", "normal"]);
+
+// 6/8 compound time — accent on beats 1 and 4
+await setPattern(["strong", "muted", "muted", "normal", "muted", "muted"]);
+
+// Ghost groove — strong downbeat, ghost on beat 3
+await setPattern(["strong", "normal", "muted", "normal"]);
+
+// 16-step pattern (maximum length)
+await setPattern([
+  "strong",
+  "muted",
+  "normal",
+  "muted",
+  "normal",
+  "muted",
+  "strong",
+  "muted",
+  "normal",
+  "muted",
+  "normal",
+  "muted",
+  "normal",
+  "muted",
+  "normal",
+  "muted",
+]);
+
+// Change on the fly while the engine is running
+await setPattern(["strong", "normal", "normal"]); // switch to 3/4 mid-song
 ```
 
 ## API
@@ -95,6 +148,10 @@ Changes the tempo on the fly without stopping the engine. Throws `RangeError` if
 
 Switches the click sound without stopping the engine. The new preset takes effect on the next beat. Throws `TypeError` if `sound` is not one of the valid presets. Default is `"click"`.
 
+#### `setPattern(pattern: BeatAccent[]): Promise<void>`
+
+Sets the accent pattern. `pattern` must contain 1–16 `BeatAccent` values. The pattern loops indefinitely — beat index 0 corresponds to the first element, beat index `n` to `pattern[n % pattern.length]`. Can be called while the engine is running; the new pattern takes effect from the next beat. Throws `RangeError` if the length is out of range, `TypeError` if any element is invalid. Default pattern is `["strong", "normal", "normal", "normal"]`.
+
 ---
 
 ### Events
@@ -105,10 +162,11 @@ Subscribe via `ExpoPrecisionMetronomeModule.addListener(eventName, handler)`. Al
 
 Emitted on every beat.
 
-| Property    | Type     | Description                                     |
-| ----------- | -------- | ----------------------------------------------- |
-| `beat`      | `number` | Beat index, starting at 1                       |
-| `timestamp` | `number` | High-resolution audio clock timestamp (seconds) |
+| Property    | Type         | Description                                               |
+| ----------- | ------------ | --------------------------------------------------------- |
+| `beat`      | `number`     | Beat index, starting at 0, increments each beat           |
+| `timestamp` | `number`     | High-resolution audio clock timestamp (seconds)           |
+| `accent`    | `BeatAccent` | Accent level of this beat: `strong`, `normal`, or `muted` |
 
 #### `onStop`
 
@@ -122,20 +180,26 @@ Emitted when the metronome stops for any reason.
 
 ### Constants
 
-| Constant        | Value                                                  | Description           |
-| --------------- | ------------------------------------------------------ | --------------------- |
-| `BPM_MIN`       | `20`                                                   | Minimum valid BPM     |
-| `BPM_MAX`       | `300`                                                  | Maximum valid BPM     |
-| `SOUND_PRESETS` | `["click","beep","woodblock","rim","hihat","cowbell"]` | All available presets |
+| Constant                  | Value                                                  | Description                           |
+| ------------------------- | ------------------------------------------------------ | ------------------------------------- |
+| `BPM_MIN`                 | `20`                                                   | Minimum valid BPM                     |
+| `BPM_MAX`                 | `300`                                                  | Maximum valid BPM                     |
+| `SOUND_PRESETS`           | `["click","beep","woodblock","rim","hihat","cowbell"]` | All available sound presets           |
+| `BEAT_ACCENTS`            | `["strong","normal","muted"]`                          | All valid accent levels               |
+| `BEAT_PATTERN_MAX_LENGTH` | `16`                                                   | Maximum beats in a pattern            |
+| `DEFAULT_BEAT_PATTERN`    | `["strong","normal","normal","normal"]`                | Default pattern used when none is set |
 
 ---
 
 ### Types
 
 ```ts
+type BeatAccent = "strong" | "normal" | "muted";
+
 type BeatEventPayload = {
   beat: number;
   timestamp: number;
+  accent: BeatAccent;
 };
 
 type StopEventPayload = {
@@ -144,6 +208,14 @@ type StopEventPayload = {
 
 type SoundPreset = "click" | "beep" | "woodblock" | "rim" | "hihat" | "cowbell";
 ```
+
+#### Accent levels
+
+| Level    | Volume   | Pitch          | Decay          |
+| -------- | -------- | -------------- | -------------- |
+| `strong` | +30 %    | ×1.4 freq      | 0.6× faster    |
+| `normal` | baseline | baseline       | baseline       |
+| `muted`  | −88 %    | same as normal | same as normal |
 
 #### Sound presets
 
