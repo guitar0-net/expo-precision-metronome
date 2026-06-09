@@ -6,6 +6,13 @@ SPDX-License-Identifier: MIT
 
 # Changelog
 
+## [1.2.0](https://github.com/guitar0-net/expo-precision-metronome/compare/v1.1.0...v1.2.0) (2026-06-09)
+
+
+### Features
+
+* implement accent pattern API with setPattern and beat accent levels ([8cd11f0](https://github.com/guitar0-net/expo-precision-metronome/commit/8cd11f03a3eb81d2aa1202ca49de8e3d62bf4af2))
+
 ## [Unreleased]
 
 ### Breaking Changes
