@@ -6,12 +6,17 @@ SPDX-License-Identifier: MIT
 
 # Changelog
 
-## [1.1.0](https://github.com/guitar0-net/expo-precision-metronome/compare/v1.0.0...v1.1.0) (2026-06-07)
+## [Unreleased]
 
+### Breaking Changes
+
+- `onBeat` event `beat` field is now **0-based** (was 1-based). Update any code that treats `beat === 1` as the downbeat to use `beat === 0` instead.
+
+## [1.1.0](https://github.com/guitar0-net/expo-precision-metronome/compare/v1.0.0...v1.1.0) (2026-06-07)
 
 ### Features
 
-* add songs variety ([b505ad8](https://github.com/guitar0-net/expo-precision-metronome/commit/b505ad8e8f48cc38a945a1bc0e122060edbd48a1))
+- add songs variety ([b505ad8](https://github.com/guitar0-net/expo-precision-metronome/commit/b505ad8e8f48cc38a945a1bc0e122060edbd48a1))
 
 ## [1.0.0](https://github.com/guitar0-net/expo-precision-metronome/releases/tag/v1.0.0) (2026-05-23)
 
