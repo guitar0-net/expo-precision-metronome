@@ -22,7 +22,7 @@ MetronomeEngine::MetronomeEngine(JavaVM* jvm, jobject kotlinBridge)
     jvm_->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6);
     kotlinBridge_ = env->NewGlobalRef(kotlinBridge);
     jclass cls = env->GetObjectClass(kotlinBridge_);
-    onBeatMethodId_ = env->GetMethodID(cls, "onBeat", "(IDLjava/lang/String;)V");
+    onBeatMethodId_ = env->GetMethodID(cls, "onBeat", "(IDI)V");
     onStopMethodId_ = env->GetMethodID(cls, "onNativeStop", "(Ljava/lang/String;)V");
     env->DeleteLocalRef(cls);
 }
@@ -144,11 +144,16 @@ oboe::DataCallbackResult MetronomeEngine::onAudioReady(
         clickAccent_ = ap;
         clickPhase_ = (toWrite < dur) ? toWrite : -1;
 
+        // Audio-clock timestamp: seconds elapsed since stream open.
         double beatTimestamp = static_cast<double>(bufferStart + beat.offset) / sampleRate_;
 
+        // Dispatch to Kotlin on the audio thread. The JVM call is fast (< 1 µs)
+        // and fires at most 5 times/s, so priority inversion risk is negligible.
         JNIEnv* env = nullptr;
         int getEnvStatus = jvm_->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6);
         if (getEnvStatus == JNI_EDETACHED) {
+            // Register a pthread destructor once so the thread is detached when Oboe
+            // destroys it (e.g. on device change), preventing a JNI resource leak.
             std::call_once(sJvmDetachKeyOnce, [] {
                 pthread_key_create(&sJvmDetachKey, detachJvmThread);
             });
@@ -156,20 +161,12 @@ oboe::DataCallbackResult MetronomeEngine::onAudioReady(
             pthread_setspecific(sJvmDetachKey, jvm_);
         }
         if (env && onBeatMethodId_ && kotlinBridge_) {
-            const char* accentStr;
-            switch (accent) {
-                case BeatAccent::Strong: accentStr = "strong"; break;
-                case BeatAccent::Muted:  accentStr = "muted";  break;
-                default:                 accentStr = "normal"; break;
-            }
-            jstring jAccent = env->NewStringUTF(accentStr);
             env->CallVoidMethod(
                 kotlinBridge_,
                 onBeatMethodId_,
                 static_cast<jint>(beat.beatNumber),
                 static_cast<jdouble>(beatTimestamp),
-                jAccent);
-            if (jAccent) env->DeleteLocalRef(jAccent);
+                static_cast<jint>(static_cast<int>(accent)));
             if (env->ExceptionCheck()) {
                 env->ExceptionClear();
             }
@@ -181,6 +178,7 @@ oboe::DataCallbackResult MetronomeEngine::onAudioReady(
 }
 
 void MetronomeEngine::onErrorAfterClose(oboe::AudioStream*, oboe::Result) {
+    // Use exchange so a concurrent explicit stop() wins and we don't double-notify.
     if (!running_.exchange(false)) return;
 
     JNIEnv* env = nullptr;
@@ -197,5 +195,9 @@ void MetronomeEngine::onErrorAfterClose(oboe::AudioStream*, oboe::Result) {
         }
         if (env->ExceptionCheck()) env->ExceptionClear();
     }
+    // Explicit detach is safe here: onErrorAfterClose fires exactly once per stream
+    // lifetime (the stream is permanently closed at this point), so this thread is
+    // never reused by Oboe. The pthread_key auto-detach used in onAudioReady is
+    // unnecessary for this one-shot callback.
     if (attached) jvm_->DetachCurrentThread();
 }

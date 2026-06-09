@@ -74,7 +74,7 @@ class ExpoPrecisionMetronomeModule : Module() {
         }
 
         AsyncFunction("setPattern") { pattern: List<BeatAccent> ->
-            engine?.setPattern(MetronomeEngine.encodePattern(pattern.map { it.name }))
+            engine?.setPattern(MetronomeEngine.encodePattern(pattern))
         }
     }
 }

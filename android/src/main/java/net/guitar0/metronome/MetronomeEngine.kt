@@ -60,9 +60,14 @@ internal class MetronomeEngine(
         }
     }
 
-    // Called from JNI on the Oboe audio thread.
+    // Called from JNI on the Oboe audio thread. accentOrdinal: 0=strong, 1=normal, 2=muted.
     @Keep
-    fun onBeat(beat: Int, timestamp: Double, accent: String) {
+    fun onBeat(beat: Int, timestamp: Double, accentOrdinal: Int) {
+        val accent = when (accentOrdinal) {
+            0 -> "strong"
+            2 -> "muted"
+            else -> "normal"
+        }
         mainHandler.post {
             onEvent("onBeat", mapOf("beat" to beat, "timestamp" to timestamp, "accent" to accent))
         }
@@ -129,14 +134,14 @@ internal class MetronomeEngine(
     companion object {
         // Encoding: bits 32-36 = (length-1), bits 0-31 = 16×2-bit accent codes.
         // 0=strong, 1=normal, 2=muted.
-        fun encodePattern(pattern: List<String>): Long {
+        fun encodePattern(pattern: List<BeatAccent>): Long {
             val len = (pattern.size - 1).toLong() shl 32
             var bits = 0L
             pattern.forEachIndexed { i, accent ->
-                val code = when (accent) {
-                    "strong" -> 0L
-                    "muted" -> 2L
-                    else -> 1L
+                val code: Long = when (accent) {
+                    BeatAccent.strong -> 0L
+                    BeatAccent.normal -> 1L
+                    BeatAccent.muted -> 2L
                 }
                 bits = bits or (code shl (i * 2))
             }
