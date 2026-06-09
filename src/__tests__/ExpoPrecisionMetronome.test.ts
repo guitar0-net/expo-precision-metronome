@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, jest, test } from "@jest/globals";
 
 import {
+  BEAT_ACCENTS,
+  BEAT_PATTERN_MAX_LENGTH,
+  BeatAccent,
   BPM_MAX,
   BPM_MIN,
   SOUND_PRESETS,
   SoundPreset,
 } from "../ExpoPrecisionMetronome.types";
 import ExpoPrecisionMetronomeModule from "../ExpoPrecisionMetronomeModule";
-import { setBpm, setSound, start, stop } from "../index";
+import { setBpm, setPattern, setSound, start, stop } from "../index";
 
 const mod = jest.mocked(ExpoPrecisionMetronomeModule);
 
@@ -114,5 +117,68 @@ describe("setSound()", () => {
     await expect(setSound("tick" as SoundPreset)).rejects.toThrow(
       `sound must be one of: ${SOUND_PRESETS.join(", ")}, got "tick"`,
     );
+  });
+});
+
+describe("BEAT_ACCENTS", () => {
+  test("contains exactly the three expected accent levels", () => {
+    expect(BEAT_ACCENTS).toEqual(["strong", "normal", "muted"]);
+  });
+});
+
+describe("setPattern()", () => {
+  test.each([
+    [["strong"]],
+    [["strong", "normal", "normal", "normal"]],
+    [["strong", "muted", "normal"]],
+    [Array(BEAT_PATTERN_MAX_LENGTH).fill("normal") as BeatAccent[]],
+  ])("delegates valid pattern %j to native module", async (pattern) => {
+    await setPattern(pattern);
+    expect(mod.setPattern).toHaveBeenCalledWith(pattern);
+    expect(mod.setPattern).toHaveBeenCalledTimes(1);
+  });
+
+  test.each([[[]], [Array(BEAT_PATTERN_MAX_LENGTH + 1).fill("normal")]])(
+    "rejects with RangeError for pattern with invalid length %j",
+    async (pattern) => {
+      await expect(setPattern(pattern as BeatAccent[])).rejects.toBeInstanceOf(
+        RangeError,
+      );
+      expect(mod.setPattern).not.toHaveBeenCalled();
+    },
+  );
+
+  test.each([
+    [["strong", "STRONG"] as unknown as BeatAccent[]],
+    [["strong", "loud"] as unknown as BeatAccent[]],
+    [["strong", ""] as unknown as BeatAccent[]],
+    [["strong", null] as unknown as BeatAccent[]],
+  ])(
+    "rejects with TypeError when pattern contains invalid accent %j",
+    async (pattern) => {
+      await expect(setPattern(pattern)).rejects.toBeInstanceOf(TypeError);
+      expect(mod.setPattern).not.toHaveBeenCalled();
+    },
+  );
+
+  test("error message includes valid accents and the bad value", async () => {
+    await expect(
+      setPattern(["strong", "loud"] as unknown as BeatAccent[]),
+    ).rejects.toThrow(
+      `each accent must be one of: ${BEAT_ACCENTS.join(", ")}, got "loud"`,
+    );
+  });
+
+  test("range error message includes max length and actual count", async () => {
+    await expect(setPattern([])).rejects.toThrow(
+      `pattern must have 1–${BEAT_PATTERN_MAX_LENGTH} elements, got 0`,
+    );
+  });
+
+  test("rejects non-array argument", async () => {
+    await expect(
+      setPattern("strong" as unknown as BeatAccent[]),
+    ).rejects.toBeInstanceOf(RangeError);
+    expect(mod.setPattern).not.toHaveBeenCalled();
   });
 });

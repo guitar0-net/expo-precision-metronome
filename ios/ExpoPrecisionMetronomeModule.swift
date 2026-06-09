@@ -1,6 +1,7 @@
 import ExpoModulesCore
 
 extension SoundPreset: Enumerable {}
+extension BeatAccent: Enumerable {}
 
 private let bpmMin: Double = 20
 private let bpmMax: Double = 300
@@ -15,8 +16,8 @@ public class ExpoPrecisionMetronomeModule: Module {
 
         OnCreate {
             let eng = MetronomeEngine()
-            eng.beatHandler = { [weak self] beat, timestamp in
-                self?.sendEvent("onBeat", ["beat": beat, "timestamp": timestamp])
+            eng.beatHandler = { [weak self] beat, timestamp, accent in
+                self?.sendEvent("onBeat", ["beat": beat, "timestamp": timestamp, "accent": accent])
             }
             eng.stopHandler = { [weak self] reason in
                 self?.sendEvent("onStop", ["reason": reason])
@@ -51,6 +52,10 @@ public class ExpoPrecisionMetronomeModule: Module {
 
         AsyncFunction("setSound") { (preset: SoundPreset) in
             self.engine?.setSound(preset: preset)
+        }
+
+        AsyncFunction("setPattern") { (pattern: [BeatAccent]) in
+            self.engine?.setPattern(pattern)
         }
     }
 }

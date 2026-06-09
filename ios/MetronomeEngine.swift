@@ -1,8 +1,8 @@
 import AVFoundation
 
 final class MetronomeEngine {
-    // Both handlers are dispatched on the main thread.
-    var beatHandler: ((_ beat: Int, _ timestamp: Double) -> Void)?
+    // All three handlers are dispatched on the main thread.
+    var beatHandler: ((_ beat: Int, _ timestamp: Double, _ accent: String) -> Void)?
     var stopHandler: ((_ reason: String) -> Void)?
 
     private var engine: AVAudioEngine?
@@ -11,17 +11,23 @@ final class MetronomeEngine {
 
     // Accessed exclusively from the audio render thread after start().
     private var sampleRate: Double = 44_100
-    private var currentSample: Int64 = 0  // relative to engine start
-    private var clickPhase: Int = -1      // -1 = no active click, >=0 = samples written so far
-    // Duration and preset of the currently-playing click; captured at click onset.
+    private var currentSample: Int64 = 0
+    private var clickPhase: Int = -1
     private var clickDurationSamples: Int = 0
     private var clickPreset: SoundPreset = .click
+    // Accent params captured at click onset; used for multi-buffer continuation.
+    private var clickAccent: ClickSynthesizer.AccentParams = .normal
 
     // Written from the JS thread, read from the audio render thread.
     // On ARM64 (all iOS devices), an aligned 8-byte load/store is a single LDR/STR —
     // hardware-atomic, no torn reads possible. No synchronisation primitive needed.
     private var currentBPM: Double = 120
-    private var currentPresetIndex: Int = 0  // same guarantee: aligned Int = 8 bytes on ARM64
+    private var currentPresetIndex: Int = 0
+    // Pattern packed as: bits 32-36 = (length-1), bits 0-31 = 16×2-bit accent codes.
+    // 0b00=strong, 0b01=normal, 0b10=muted. Default: ['strong','normal','normal','normal'].
+    private var currentPatternEncoded: Int = MetronomeEngine.defaultPatternEncoded
+
+    private static let defaultPatternEncoded: Int = (3 << 32) | 0x54
 
     var isRunning: Bool { engine?.isRunning == true }
 
@@ -45,6 +51,10 @@ final class MetronomeEngine {
         currentPresetIndex = SoundPreset.allCases.firstIndex(of: preset) ?? 0
     }
 
+    func setPattern(_ pattern: [BeatAccent]) {
+        currentPatternEncoded = MetronomeEngine.encode(pattern)
+    }
+
     /// `reason: nil` suppresses the onStop event — used by OnDestroy where JS is gone.
     func stop(reason: String?) {
         guard let eng = engine else { return }
@@ -60,10 +70,35 @@ final class MetronomeEngine {
 
     // MARK: - Private
 
+    private static func encode(_ pattern: [BeatAccent]) -> Int {
+        let len = (pattern.count - 1) << 32
+        var bits = 0
+        for (beatIdx, accent) in pattern.enumerated() {
+            let code: Int
+            switch accent {
+            case .strong: code = 0
+            case .normal: code = 1
+            case .muted:  code = 2
+            }
+            bits |= (code << (beatIdx * 2))
+        }
+        return len | bits
+    }
+
+    private static func decodeAccent(encoded: Int, beatNumber: Int) -> BeatAccent {
+        let length = ((encoded >> 32) & 0x1F) + 1
+        let beatIndex = beatNumber % length
+        let code = (encoded >> (beatIndex * 2)) & 0x3
+        switch code {
+        case 0:  return .strong
+        case 2:  return .muted
+        default: return .normal
+        }
+    }
+
     private func launchEngine() throws {
         let newEngine = AVAudioEngine()
 
-        // outputFormat.sampleRate may be 0 before the engine is started on some devices.
         let hwRate = newEngine.outputNode.outputFormat(forBus: 0).sampleRate
         let sr = hwRate > 0 ? hwRate : 44_100
 
@@ -96,6 +131,23 @@ final class MetronomeEngine {
         addInterruptionObserver()
     }
 
+    private func renderOngoingClick(into buffer: UnsafeMutablePointer<Float>, frameCount: Int) {
+        guard clickPhase >= 0 else { return }
+        let remaining = clickDurationSamples - clickPhase
+        let toWrite = min(remaining, frameCount)
+        ClickSynthesizer.render(
+            into: buffer,
+            startFrame: 0,
+            clickPhase: clickPhase,
+            count: toWrite,
+            sampleRate: sampleRate,
+            preset: clickPreset,
+            accent: clickAccent
+        )
+        clickPhase += toWrite
+        if clickPhase >= clickDurationSamples { clickPhase = -1 }
+    }
+
     private func renderCallback(
         frameCount: Int,
         audioBufferList: UnsafeMutablePointer<AudioBufferList>
@@ -109,20 +161,7 @@ final class MetronomeEngine {
         let bpm = currentBPM
         let bufferStart = currentSample
 
-        if clickPhase >= 0 {
-            let remaining = clickDurationSamples - clickPhase
-            let toWrite = min(remaining, frameCount)
-            ClickSynthesizer.render(
-                into: buffer,
-                startFrame: 0,
-                clickPhase: clickPhase,
-                count: toWrite,
-                sampleRate: sampleRate,
-                preset: clickPreset
-            )
-            clickPhase += toWrite
-            if clickPhase >= clickDurationSamples { clickPhase = -1 }
-        }
+        renderOngoingClick(into: buffer, frameCount: frameCount)
 
         if let (offset, beatNumber) = scheduler.nextBeat(
             frameCount: frameCount,
@@ -131,7 +170,9 @@ final class MetronomeEngine {
             sampleRate: sampleRate
         ) {
             let preset = SoundPreset.allCases[currentPresetIndex]
-            let dur = ClickSynthesizer.clickDuration(sampleRate: sampleRate, preset: preset)
+            let accent = MetronomeEngine.decodeAccent(encoded: currentPatternEncoded, beatNumber: beatNumber)
+            let ap = ClickSynthesizer.accentParams(for: accent, preset: preset)
+            let dur = ClickSynthesizer.clickDuration(sampleRate: sampleRate, preset: preset, accent: accent)
             let toWrite = min(dur, frameCount - offset)
             ClickSynthesizer.render(
                 into: buffer,
@@ -139,17 +180,18 @@ final class MetronomeEngine {
                 clickPhase: 0,
                 count: toWrite,
                 sampleRate: sampleRate,
-                preset: preset
+                preset: preset,
+                accent: ap
             )
             clickDurationSamples = dur
             clickPreset = preset
+            clickAccent = ap
             clickPhase = toWrite < dur ? toWrite : -1
 
             let beatTimestamp = Double(bufferStart + Int64(offset)) / sampleRate
-            let bn = beatNumber
-            let ts = beatTimestamp
+            let accentName = accent.rawValue
             DispatchQueue.main.async { [weak self] in
-                self?.beatHandler?(bn, ts)
+                self?.beatHandler?(beatNumber, beatTimestamp, accentName)
             }
         }
 

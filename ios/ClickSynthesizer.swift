@@ -1,8 +1,41 @@
 import Foundation
 
 enum ClickSynthesizer {
+    struct AccentParams {
+        static let normal = AccentParams(volume: 1.0, freqMult: 1.0, decayMult: 1.0)
+        let volume: Float
+        let freqMult: Double
+        let decayMult: Double
+    }
+
+    // strong: louder, higher pitch, punchier decay — the secret sauce.
+    // muted:  ghost sound at ~12 % amplitude.
+    static func accentParams(for accent: BeatAccent) -> AccentParams {
+        switch accent {
+        case .strong: return AccentParams(volume: 1.3, freqMult: 1.4, decayMult: 0.6)
+        case .muted:  return AccentParams(volume: 0.12, freqMult: 1.0, decayMult: 1.0)
+        case .normal: return .normal
+        }
+    }
+
     static func clickDuration(sampleRate: Double, preset: SoundPreset) -> Int {
         Int(clickSeconds(preset: preset) * sampleRate)
+    }
+
+    // Hihat strong = open hihat: louder + longer decay. freqMult is unused by renderNoise.
+    static func accentParams(for accent: BeatAccent, preset: SoundPreset) -> AccentParams {
+        guard preset == .hihat else { return accentParams(for: accent) }
+        switch accent {
+        case .strong: return AccentParams(volume: 1.4, freqMult: 1.0, decayMult: 3.5)
+        case .muted:  return AccentParams(volume: 0.12, freqMult: 1.0, decayMult: 1.0)
+        case .normal: return .normal
+        }
+    }
+
+    // Hihat strong is longer — like an open hihat ringing out.
+    static func clickDuration(sampleRate: Double, preset: SoundPreset, accent: BeatAccent) -> Int {
+        let seconds = (preset == .hihat && accent == .strong) ? 0.030 : clickSeconds(preset: preset)
+        return Int(seconds * sampleRate)
     }
 
     // swiftlint:disable:next function_parameter_count
@@ -12,7 +45,8 @@ enum ClickSynthesizer {
         clickPhase: Int,
         count: Int,
         sampleRate: Double,
-        preset: SoundPreset
+        preset: SoundPreset,
+        accent: AccentParams = .normal
     ) {
         guard count > 0 else { return }
         let ctx = RenderContext(
@@ -20,7 +54,8 @@ enum ClickSynthesizer {
             startFrame: startFrame,
             clickPhase: clickPhase,
             count: count,
-            sampleRate: sampleRate
+            sampleRate: sampleRate,
+            accent: accent
         )
         switch preset {
         case .click:     renderSine(ctx, freq: 1_000, decayTau: 0.002)
@@ -40,6 +75,7 @@ enum ClickSynthesizer {
         let clickPhase: Int
         let count: Int
         let sampleRate: Double
+        let accent: AccentParams
     }
 
     private static func clickSeconds(preset: SoundPreset) -> Double {
@@ -54,10 +90,11 @@ enum ClickSynthesizer {
     }
 
     private static func renderSine(_ ctx: RenderContext, freq: Double, decayTau: Double) {
-        let twoPiF = 2.0 * Double.pi * freq
+        let twoPiF = 2.0 * Double.pi * (freq * ctx.accent.freqMult)
+        let tau = decayTau * ctx.accent.decayMult
         for idx in 0..<ctx.count {
             let phase = Double(ctx.clickPhase + idx) / ctx.sampleRate
-            ctx.buffer[ctx.startFrame + idx] += Float(sin(twoPiF * phase) * exp(-phase / decayTau))
+            ctx.buffer[ctx.startFrame + idx] += Float(sin(twoPiF * phase) * exp(-phase / tau)) * ctx.accent.volume
         }
     }
 
@@ -67,19 +104,21 @@ enum ClickSynthesizer {
         freq2: Double,
         decayTau: Double
     ) {
-        let twoPiF1 = 2.0 * Double.pi * freq1
-        let twoPiF2 = 2.0 * Double.pi * freq2
+        let twoPiF1 = 2.0 * Double.pi * (freq1 * ctx.accent.freqMult)
+        let twoPiF2 = 2.0 * Double.pi * (freq2 * ctx.accent.freqMult)
+        let tau = decayTau * ctx.accent.decayMult
         for idx in 0..<ctx.count {
             let phase = Double(ctx.clickPhase + idx) / ctx.sampleRate
-            let amp = exp(-phase / decayTau)
-            ctx.buffer[ctx.startFrame + idx] += Float((sin(twoPiF1 * phase) + sin(twoPiF2 * phase)) * 0.5 * amp)
+            let amp = Float(exp(-phase / tau)) * ctx.accent.volume
+            ctx.buffer[ctx.startFrame + idx] += Float(sin(twoPiF1 * phase) + sin(twoPiF2 * phase)) * 0.5 * amp
         }
     }
 
     private static func renderNoise(_ ctx: RenderContext, decayTau: Double) {
+        let tau = decayTau * ctx.accent.decayMult
         for idx in 0..<ctx.count {
             let phase = Double(ctx.clickPhase + idx) / ctx.sampleRate
-            let amp = Float(exp(-phase / decayTau))
+            let amp = Float(exp(-phase / tau)) * ctx.accent.volume
             var noiseState = UInt32(bitPattern: Int32(truncatingIfNeeded: ctx.clickPhase + idx))
             noiseState = noiseState &* 1_664_525 &+ 1_013_904_223
             noiseState = (noiseState ^ (noiseState >> 16)) &* 0x45d9_f3b7

@@ -16,6 +16,12 @@ enum class SoundPreset : Enumerable {
     cowbell
 }
 
+enum class BeatAccent : Enumerable {
+    strong,
+    normal,
+    muted
+}
+
 class ExpoPrecisionMetronomeModule : Module() {
     private var engine: MetronomeEngine? = null
 
@@ -65,6 +71,10 @@ class ExpoPrecisionMetronomeModule : Module() {
 
         AsyncFunction("setSound") { preset: SoundPreset ->
             engine?.setSound(preset.ordinal)
+        }
+
+        AsyncFunction("setPattern") { pattern: List<BeatAccent> ->
+            engine?.setPattern(MetronomeEngine.encodePattern(pattern))
         }
     }
 }

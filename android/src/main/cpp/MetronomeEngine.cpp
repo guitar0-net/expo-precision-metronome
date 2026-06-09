@@ -22,7 +22,7 @@ MetronomeEngine::MetronomeEngine(JavaVM* jvm, jobject kotlinBridge)
     jvm_->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6);
     kotlinBridge_ = env->NewGlobalRef(kotlinBridge);
     jclass cls = env->GetObjectClass(kotlinBridge_);
-    onBeatMethodId_ = env->GetMethodID(cls, "onBeat", "(ID)V");
+    onBeatMethodId_ = env->GetMethodID(cls, "onBeat", "(IDI)V");
     onStopMethodId_ = env->GetMethodID(cls, "onNativeStop", "(Ljava/lang/String;)V");
     env->DeleteLocalRef(cls);
 }
@@ -52,6 +52,21 @@ void MetronomeEngine::setBpm(double bpm) {
 
 void MetronomeEngine::setSound(int presetIndex) {
     currentPreset_.store(presetIndex, std::memory_order_relaxed);
+}
+
+void MetronomeEngine::setPattern(int64_t encoded) {
+    currentPattern_.store(encoded, std::memory_order_relaxed);
+}
+
+BeatAccent MetronomeEngine::decodeAccent(int64_t encoded, int beatNumber) {
+    int length = static_cast<int>((encoded >> 32) & 0x1F) + 1;
+    int beatIndex = beatNumber % length;
+    int code = static_cast<int>((encoded >> (beatIndex * 2)) & 0x3);
+    switch (code) {
+        case 0:  return BeatAccent::Strong;
+        case 2:  return BeatAccent::Muted;
+        default: return BeatAccent::Normal;
+    }
 }
 
 void MetronomeEngine::openStream() {
@@ -110,7 +125,7 @@ oboe::DataCallbackResult MetronomeEngine::onAudioReady(
     if (clickPhase_ >= 0) {
         int remaining = clickDurationSamples_ - clickPhase_;
         int toWrite = std::min(remaining, static_cast<int>(numFrames));
-        ClickSynthesizer::render(buffer, 0, clickPhase_, toWrite, sampleRate_, clickPreset_);
+        ClickSynthesizer::render(buffer, 0, clickPhase_, toWrite, sampleRate_, clickPreset_, clickAccent_);
         clickPhase_ += toWrite;
         if (clickPhase_ >= clickDurationSamples_) clickPhase_ = -1;
     }
@@ -118,11 +133,15 @@ oboe::DataCallbackResult MetronomeEngine::onAudioReady(
     auto beat = scheduler_.nextBeat(static_cast<int>(numFrames), bufferStart, bpm, sampleRate_);
     if (beat.offset >= 0) {
         SoundPreset preset = static_cast<SoundPreset>(currentPreset_.load(std::memory_order_relaxed));
-        int dur = ClickSynthesizer::clickDuration(sampleRate_, preset);
+        BeatAccent accent = decodeAccent(currentPattern_.load(std::memory_order_relaxed), beat.beatNumber);
+        ClickSynthesizer::AccentParams ap = ClickSynthesizer::accentParams(accent, preset);
+
+        int dur = ClickSynthesizer::clickDuration(sampleRate_, preset, accent);
         int toWrite = std::min(dur, static_cast<int>(numFrames) - beat.offset);
-        ClickSynthesizer::render(buffer, beat.offset, 0, toWrite, sampleRate_, preset);
+        ClickSynthesizer::render(buffer, beat.offset, 0, toWrite, sampleRate_, preset, ap);
         clickDurationSamples_ = dur;
         clickPreset_ = preset;
+        clickAccent_ = ap;
         clickPhase_ = (toWrite < dur) ? toWrite : -1;
 
         // Audio-clock timestamp: seconds elapsed since stream open.
@@ -146,7 +165,8 @@ oboe::DataCallbackResult MetronomeEngine::onAudioReady(
                 kotlinBridge_,
                 onBeatMethodId_,
                 static_cast<jint>(beat.beatNumber),
-                static_cast<jdouble>(beatTimestamp));
+                static_cast<jdouble>(beatTimestamp),
+                static_cast<jint>(static_cast<int>(accent)));
             if (env->ExceptionCheck()) {
                 env->ExceptionClear();
             }

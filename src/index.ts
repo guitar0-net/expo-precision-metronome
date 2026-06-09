@@ -1,4 +1,7 @@
 import {
+  BEAT_ACCENTS,
+  BEAT_PATTERN_MAX_LENGTH,
+  BeatAccent,
   BPM_MAX,
   BPM_MIN,
   SOUND_PRESETS,
@@ -35,6 +38,28 @@ export async function setSound(sound: SoundPreset): Promise<void> {
     );
   }
   return ExpoPrecisionMetronomeModule.setSound(sound);
+}
+
+export async function setPattern(pattern: BeatAccent[]): Promise<void> {
+  if (
+    !Array.isArray(pattern) ||
+    pattern.length < 1 ||
+    pattern.length > BEAT_PATTERN_MAX_LENGTH
+  ) {
+    throw new RangeError(
+      `pattern must have 1–${BEAT_PATTERN_MAX_LENGTH} elements, got ${
+        Array.isArray(pattern) ? pattern.length : typeof pattern
+      }`,
+    );
+  }
+  for (const accent of pattern) {
+    if (!(BEAT_ACCENTS as readonly string[]).includes(accent)) {
+      throw new TypeError(
+        `each accent must be one of: ${BEAT_ACCENTS.join(", ")}, got "${accent}"`,
+      );
+    }
+  }
+  return ExpoPrecisionMetronomeModule.setPattern(pattern);
 }
 
 export { default as ExpoPrecisionMetronomeView } from "./ExpoPrecisionMetronomeView";

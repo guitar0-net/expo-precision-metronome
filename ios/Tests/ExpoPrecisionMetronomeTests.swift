@@ -83,6 +83,76 @@ import Testing
             #expect(abs(twoPass[i] - singlePass[i] * 2) <= 1e-6, "sample \(i) should be doubled after two render passes")
         }
     }
+
+    // MARK: - Accent rendering
+
+    @Test func strongAccentIsLouderThanNormal() {
+        let count = 20
+        var normalBuf = [Float](repeating: 0, count: count)
+        var strongBuf = [Float](repeating: 0, count: count)
+
+        normalBuf.withUnsafeMutableBufferPointer { ptr in
+            ClickSynthesizer.render(into: ptr.baseAddress!, startFrame: 0, clickPhase: 1, count: count, sampleRate: 44_100, preset: .click)
+        }
+        strongBuf.withUnsafeMutableBufferPointer { ptr in
+            ClickSynthesizer.render(into: ptr.baseAddress!, startFrame: 0, clickPhase: 1, count: count, sampleRate: 44_100, preset: .click, accent: ClickSynthesizer.accentParams(for: .strong))
+        }
+
+        let normalRMS = rms(normalBuf)
+        let strongRMS = rms(strongBuf)
+        #expect(strongRMS > normalRMS, "strong accent RMS (\(strongRMS)) should exceed normal (\(normalRMS))")
+    }
+
+    @Test func mutedAccentIsQuieterThanNormal() {
+        let count = 20
+        var normalBuf = [Float](repeating: 0, count: count)
+        var mutedBuf  = [Float](repeating: 0, count: count)
+
+        normalBuf.withUnsafeMutableBufferPointer { ptr in
+            ClickSynthesizer.render(into: ptr.baseAddress!, startFrame: 0, clickPhase: 1, count: count, sampleRate: 44_100, preset: .click)
+        }
+        mutedBuf.withUnsafeMutableBufferPointer { ptr in
+            ClickSynthesizer.render(into: ptr.baseAddress!, startFrame: 0, clickPhase: 1, count: count, sampleRate: 44_100, preset: .click, accent: ClickSynthesizer.accentParams(for: .muted))
+        }
+
+        let normalRMS = rms(normalBuf)
+        let mutedRMS  = rms(mutedBuf)
+        #expect(mutedRMS < normalRMS, "muted accent RMS (\(mutedRMS)) should be below normal (\(normalRMS))")
+        #expect(mutedRMS > 0, "muted accent should not be completely silent")
+    }
+
+    @Test func normalAccentParamsAreIdentity() {
+        let ap = ClickSynthesizer.accentParams(for: .normal)
+        #expect(ap.volume == 1.0)
+        #expect(ap.freqMult == 1.0)
+        #expect(ap.decayMult == 1.0)
+    }
+
+    @Test func hihatStrongIsLouderAndLongerThanNormal() {
+        let sr = 44_100.0
+        let normalDur = ClickSynthesizer.clickDuration(sampleRate: sr, preset: .hihat, accent: .normal)
+        let strongDur = ClickSynthesizer.clickDuration(sampleRate: sr, preset: .hihat, accent: .strong)
+        #expect(strongDur > normalDur, "hihat strong (\(strongDur)) should be longer than normal (\(normalDur))")
+
+        var normalBuf = [Float](repeating: 0, count: normalDur)
+        var strongBuf = [Float](repeating: 0, count: normalDur)
+        let normalAp = ClickSynthesizer.accentParams(for: .normal, preset: .hihat)
+        let strongAp = ClickSynthesizer.accentParams(for: .strong, preset: .hihat)
+        normalBuf.withUnsafeMutableBufferPointer { ptr in
+            ClickSynthesizer.render(into: ptr.baseAddress!, startFrame: 0, clickPhase: 1, count: normalDur, sampleRate: sr, preset: .hihat, accent: normalAp)
+        }
+        strongBuf.withUnsafeMutableBufferPointer { ptr in
+            ClickSynthesizer.render(into: ptr.baseAddress!, startFrame: 0, clickPhase: 1, count: normalDur, sampleRate: sr, preset: .hihat, accent: strongAp)
+        }
+        let normalRMS = rms(normalBuf)
+        let strongRMS = rms(strongBuf)
+        #expect(strongRMS > normalRMS, "hihat strong RMS (\(strongRMS)) should exceed normal (\(normalRMS))")
+    }
+
+    private func rms(_ buf: [Float]) -> Float {
+        let sum = buf.reduce(0.0) { $0 + Double($1 * $1) }
+        return Float(sqrt(sum / Double(buf.count)))
+    }
 }
 
 @Suite struct BeatSchedulerTests {

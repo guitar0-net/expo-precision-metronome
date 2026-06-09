@@ -15,6 +15,9 @@ class ExpoPrecisionMetronomeModule extends NativeModule<ExpoPrecisionMetronomeMo
   async setSound(_sound: string): Promise<void> {
     throw new Error("ExpoPrecisionMetronome is not supported on web");
   }
+  async setPattern(_pattern: string[]): Promise<void> {
+    throw new Error("ExpoPrecisionMetronome is not supported on web");
+  }
 }
 
 export default registerWebModule(
