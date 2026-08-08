@@ -1,6 +1,6 @@
 import { NativeModule, registerWebModule } from "expo";
 
-import { ExpoPrecisionMetronomeModuleEvents } from "./ExpoPrecisionMetronome.types";
+import type { ExpoPrecisionMetronomeModuleEvents } from "./ExpoPrecisionMetronome.types";
 
 class ExpoPrecisionMetronomeModule extends NativeModule<ExpoPrecisionMetronomeModuleEvents> {
   async start(_bpm: number): Promise<void> {

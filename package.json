@@ -17,7 +17,7 @@
     "type:check": "expo-module typecheck",
     "test": "expo-module test",
     "check": "npm run lint && npm run type:check && npm run test",
-    "prepare": "expo-module prepare && husky",
+    "prepare": "husky",
     "prepublishOnly": "expo-module prepublishOnly",
     "expo-module": "expo-module"
   },
@@ -68,13 +68,13 @@
   "devDependencies": {
     "@commitlint/cli": "^20.5.3",
     "@commitlint/config-conventional": "^20.5.3",
-    "@types/react": "~19.1.1",
+    "@types/react": "~19.2.2",
     "eslint-config-universe": "^15.0.3",
-    "expo": "^55.0.24",
-    "expo-module-scripts": "^55.0.2",
+    "expo": "^56.0.19",
+    "expo-module-scripts": "^56.0.3",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
-    "react-native": "0.82.1"
+    "react-native": "0.85.3"
   },
   "peerDependencies": {
     "expo": ">=55.0.0",

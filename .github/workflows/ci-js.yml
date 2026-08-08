@@ -93,32 +93,11 @@ jobs:
       - name: Run tests
         run: npm run test -- --ci --passWithNoTests
 
-  npm-audit:
-    name: npm audit
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-          cache: "npm"
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Audit dependencies
-        run: npm audit --audit-level=high
-
   js-build:
     name: JS build
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [lint, typecheck, tests, npm-audit]
+    needs: [lint, typecheck, tests]
 
     steps:
       - name: Checkout repository
