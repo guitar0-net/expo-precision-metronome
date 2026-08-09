@@ -20,20 +20,6 @@
                ReferencedContainer = "container:expoprecisionmetronomeexample.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "NO"
-            buildForProfiling = "NO"
-            buildForArchiving = "NO"
-            buildForAnalyzing = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "F940D5B1C16DE69741FACA87"
-               BuildableName = ".xctest"
-               BlueprintName = "ExpoPrecisionMetronomeTests"
-               ReferencedContainer = "container:expoprecisionmetronomeexample.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -46,9 +32,9 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "F940D5B1C16DE69741FACA87"
-               BuildableName = ".xctest"
-               BlueprintName = "ExpoPrecisionMetronomeTests"
+               BlueprintIdentifier = "00E356ED1AD99517003FC87E"
+               BuildableName = "expoprecisionmetronomeexampleTests.xctest"
+               BlueprintName = "expoprecisionmetronomeexampleTests"
                ReferencedContainer = "container:expoprecisionmetronomeexample.xcodeproj">
             </BuildableReference>
          </TestableReference>

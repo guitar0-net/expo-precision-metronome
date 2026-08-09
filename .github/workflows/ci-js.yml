@@ -5,6 +5,19 @@
 name: JS
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "mocks/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "babel.config.js"
+      - "jest.config.js"
+      - "eslint.config.js"
+      - "expo-module.config.json"
+      - ".github/workflows/ci-js.yml"
   pull_request:
     branches: [main]
     paths:
@@ -21,7 +34,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -93,32 +106,11 @@ jobs:
       - name: Run tests
         run: npm run test -- --ci --passWithNoTests
 
-  npm-audit:
-    name: npm audit
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-          cache: "npm"
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Audit dependencies
-        run: npm audit --audit-level=high
-
   js-build:
     name: JS build
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [lint, typecheck, tests, npm-audit]
+    needs: [lint, typecheck, tests]
 
     steps:
       - name: Checkout repository

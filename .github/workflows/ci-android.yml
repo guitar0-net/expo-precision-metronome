@@ -5,6 +5,15 @@
 name: Android
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "android/**"
+      - "example/android/**"
+      - "package.json"
+      - "package-lock.json"
+      - "expo-module.config.json"
+      - ".github/workflows/ci-android.yml"
   pull_request:
     branches: [main]
     paths:
@@ -17,7 +26,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -154,7 +163,7 @@ jobs:
     needs: [android-kotlin-lint, android-lint, android-unit-tests]
     strategy:
       matrix:
-        compile-sdk: [35]
+        compile-sdk: [36]
 
     steps:
       - name: Checkout repository
@@ -184,4 +193,4 @@ jobs:
 
       - name: Build Android (compileSdk ${{ matrix.compile-sdk }})
         working-directory: example/android
-        run: ./gradlew assembleDebug -PcompileSdkVersion=${{ matrix.compile-sdk }} --no-daemon
+        run: ./gradlew assembleDebug -Pandroid.compileSdkVersion=${{ matrix.compile-sdk }} --no-daemon

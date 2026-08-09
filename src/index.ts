@@ -1,12 +1,11 @@
 import {
   BEAT_ACCENTS,
   BEAT_PATTERN_MAX_LENGTH,
-  BeatAccent,
   BPM_MAX,
   BPM_MIN,
   SOUND_PRESETS,
-  SoundPreset,
 } from "./ExpoPrecisionMetronome.types";
+import type { BeatAccent, SoundPreset } from "./ExpoPrecisionMetronome.types";
 import ExpoPrecisionMetronomeModule from "./ExpoPrecisionMetronomeModule";
 
 export * from "./ExpoPrecisionMetronome.types";
