@@ -5,6 +5,19 @@
 name: JS
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "mocks/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "babel.config.js"
+      - "jest.config.js"
+      - "eslint.config.js"
+      - "expo-module.config.json"
+      - ".github/workflows/ci-js.yml"
   pull_request:
     branches: [main]
     paths:
@@ -21,7 +34,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

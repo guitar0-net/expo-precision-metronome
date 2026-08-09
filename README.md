@@ -6,9 +6,9 @@ SPDX-License-Identifier: MIT
 
 # expo-precision-metronome
 
-[![JS](https://github.com/guitar0-net/expo-precision-metronome/actions/workflows/ci-js.yml/badge.svg)](https://github.com/guitar0-net/expo-precision-metronome/actions/workflows/ci-js.yml)
-[![Android](https://github.com/guitar0-net/expo-precision-metronome/actions/workflows/ci-android.yml/badge.svg)](https://github.com/guitar0-net/expo-precision-metronome/actions/workflows/ci-android.yml)
-[![iOS](https://github.com/guitar0-net/expo-precision-metronome/actions/workflows/ci-ios.yml/badge.svg)](https://github.com/guitar0-net/expo-precision-metronome/actions/workflows/ci-ios.yml)
+[![JS](https://github.com/guitar0-net/expo-precision-metronome/actions/workflows/ci-js.yml/badge.svg?branch=main)](https://github.com/guitar0-net/expo-precision-metronome/actions/workflows/ci-js.yml)
+[![Android](https://github.com/guitar0-net/expo-precision-metronome/actions/workflows/ci-android.yml/badge.svg?branch=main)](https://github.com/guitar0-net/expo-precision-metronome/actions/workflows/ci-android.yml)
+[![iOS](https://github.com/guitar0-net/expo-precision-metronome/actions/workflows/ci-ios.yml/badge.svg?branch=main)](https://github.com/guitar0-net/expo-precision-metronome/actions/workflows/ci-ios.yml)
 [![npm version](https://img.shields.io/npm/v/expo-precision-metronome?style=flat-square)](https://www.npmjs.com/package/expo-precision-metronome)
 [![Expo SDK](https://img.shields.io/badge/Expo%20SDK-55%20%7C%2056-000020?style=flat-square&logo=expo&logoColor=white)](https://docs.expo.dev/)
 [![REUSE status](https://api.reuse.software/badge/github.com/guitar0-net/expo-precision-metronome)](https://api.reuse.software/info/github.com/guitar0-net/expo-precision-metronome)
