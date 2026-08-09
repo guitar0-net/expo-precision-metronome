@@ -46,7 +46,7 @@
   "license": "MIT",
   "homepage": "https://github.com/guitar0-net/expo-precision-metronome#readme",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.19.4"
   },
   "commitlint": {
     "extends": [
