@@ -5,9 +5,10 @@
   "main": "build/index.js",
   "types": "build/index.d.ts",
   "scripts": {
-    "build": "expo-module build",
-    "clean": "expo-module clean",
-    "lint": "expo-module lint",
+    "build": "expo-module build && npm run build:plugin",
+    "build:plugin": "expo-module build plugin",
+    "clean": "expo-module clean && expo-module clean plugin",
+    "lint": "expo-module lint && expo-module lint plugin",
     "lint:kt": "cd example/android && ./gradlew :expo-precision-metronome:ktlintCheck --no-daemon",
     "lint:swift": "swiftlint lint --strict",
     "test:swift": "swift test --package-path ios",
@@ -18,7 +19,7 @@
     "test": "expo-module test",
     "check": "npm run lint && npm run type:check && npm run test",
     "prepare": "husky",
-    "prepublishOnly": "expo-module prepublishOnly",
+    "prepublishOnly": "expo-module prepublishOnly && npm run build:plugin",
     "expo-module": "expo-module"
   },
   "keywords": [

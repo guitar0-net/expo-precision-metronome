@@ -6,6 +6,9 @@
 .vscode/
 jsconfig.json
 
+# TypeScript incremental build state
+*.tsbuildinfo
+
 # Xcode
 #
 build/
