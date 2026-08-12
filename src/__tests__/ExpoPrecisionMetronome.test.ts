@@ -43,6 +43,77 @@ describe("start()", () => {
   });
 });
 
+describe("start() options", () => {
+  test("omits the options argument entirely when none are given", async () => {
+    await start(120);
+    expect(mod.start).toHaveBeenCalledWith(120);
+  });
+
+  test("expands background: true into an empty record", async () => {
+    await start(120, { background: true });
+    expect(mod.start).toHaveBeenCalledWith(120, {
+      background: {},
+      mixWithOthers: false,
+    });
+  });
+
+  test("drops the background record when disabled", async () => {
+    await start(120, { background: false, mixWithOthers: true });
+    expect(mod.start).toHaveBeenCalledWith(120, { mixWithOthers: true });
+  });
+
+  test("passes notification options through", async () => {
+    const background = {
+      title: "Practice",
+      text: "4/4",
+      color: "#f59e0b",
+      showStopButton: false,
+      lockscreenVisibility: "private" as const,
+    };
+
+    await start(120, { background });
+
+    expect(mod.start).toHaveBeenCalledWith(120, { background, mixWithOthers: false });
+  });
+
+  test.each([
+    ["title", { title: 1 }],
+    ["text", { text: {} }],
+    ["icon", { icon: false }],
+    ["stopLabel", { stopLabel: null }],
+    ["channelName", { channelName: 7 }],
+    ["showStopButton", { showStopButton: "yes" }],
+    ["color", { color: "orange" }],
+    ["lockscreenVisibility", { lockscreenVisibility: "hidden" }],
+  ])("rejects invalid background.%s", async (_field, background) => {
+    await expect(start(120, { background } as never)).rejects.toBeInstanceOf(TypeError);
+    expect(mod.start).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    ["a string", "yes"],
+    ["a number", 1],
+    ["null", null],
+  ])("rejects background given as %s", async (_label, background) => {
+    await expect(start(120, { background } as never)).rejects.toBeInstanceOf(TypeError);
+    expect(mod.start).not.toHaveBeenCalled();
+  });
+
+  test("rejects a non-boolean mixWithOthers", async () => {
+    await expect(start(120, { mixWithOthers: "yes" } as never)).rejects.toBeInstanceOf(
+      TypeError,
+    );
+    expect(mod.start).not.toHaveBeenCalled();
+  });
+
+  test("validates BPM before touching the options", async () => {
+    await expect(start(BPM_MAX + 1, { background: true })).rejects.toBeInstanceOf(
+      RangeError,
+    );
+    expect(mod.start).not.toHaveBeenCalled();
+  });
+});
+
 describe("stop()", () => {
   test("delegates to native module", async () => {
     await stop();

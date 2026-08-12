@@ -27,8 +27,58 @@ export type BeatEventPayload = {
   accent: BeatAccent;
 };
 
+export const LOCKSCREEN_VISIBILITIES = ["public", "private", "secret"] as const;
+export type LockscreenVisibility = (typeof LOCKSCREEN_VISIBILITIES)[number];
+
+/**
+ * Notification shown while the metronome runs in the background. Everything but
+ * `title` and `text` is Android-only — iOS has no equivalent UI and ignores it.
+ */
+export type BackgroundOptions = {
+  /** @default "Metronome" */
+  title?: string;
+  /** Defaults to `"{bpm} BPM"`, which follows `setBpm()`. */
+  text?: string;
+  /** Android: drawable or mipmap resource name. Defaults to the app icon. */
+  icon?: string;
+  /** Android: accent colour, e.g. `"#f59e0b"`. */
+  color?: string;
+  /** Android: label of the stop button. @default "Stop" */
+  stopLabel?: string;
+  /** Android: @default true */
+  showStopButton?: boolean;
+  /** Android: channel name shown in system settings. @default "Metronome" */
+  channelName?: string;
+  /** Android: @default "public" */
+  lockscreenVisibility?: LockscreenVisibility;
+};
+
+export type StartOptions = {
+  /**
+   * Keep playing while the app is backgrounded. `true` uses the defaults.
+   *
+   * Requires the config plugin — `["expo-precision-metronome", { "backgroundAudio": true }]`
+   * — otherwise `start()` rejects with `ERR_BACKGROUND_NOT_CONFIGURED`.
+   */
+  background?: boolean | BackgroundOptions;
+  /**
+   * Let audio from other apps keep playing instead of interrupting it — the usual
+   * choice when practising over a backing track. Applies from the next `start()`.
+   *
+   * @default false
+   */
+  mixWithOthers?: boolean;
+};
+
+/** What the native module actually receives: `background` is normalised to a record. */
+export type NativeStartOptions = {
+  background?: BackgroundOptions;
+  mixWithOthers?: boolean;
+};
+
 export type StopEventPayload = {
-  reason: "explicit" | "interruption";
+  /** `"notification"` is Android-only — the user pressed Stop in the notification. */
+  reason: "explicit" | "interruption" | "notification";
 };
 
 export type ExpoPrecisionMetronomeModuleEvents = {
