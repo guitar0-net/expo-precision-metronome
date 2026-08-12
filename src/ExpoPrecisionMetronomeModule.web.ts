@@ -3,7 +3,7 @@ import { NativeModule, registerWebModule } from "expo";
 import type { ExpoPrecisionMetronomeModuleEvents } from "./ExpoPrecisionMetronome.types";
 
 class ExpoPrecisionMetronomeModule extends NativeModule<ExpoPrecisionMetronomeModuleEvents> {
-  async start(_bpm: number): Promise<void> {
+  async start(_bpm: number, _options?: unknown): Promise<void> {
     throw new Error("ExpoPrecisionMetronome is not supported on web");
   }
   async stop(): Promise<void> {
