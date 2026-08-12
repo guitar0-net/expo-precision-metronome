@@ -46,6 +46,63 @@ npx expo install expo-precision-metronome
 > [!NOTE]
 > This package requires native code. It does **not** work with Expo Go — use a [development build](https://docs.expo.dev/develop/development-builds/introduction/).
 
+## Background playback
+
+By default the metronome only plays while your app is in the foreground. Nothing stops it the moment you background the app, but nothing protects it either: on Android the process drops to the `cached` bucket and is the first thing the low-memory killer takes, and on iOS the app is suspended a few seconds after it leaves the screen. Emulators and simulators hide this — real devices do not.
+
+To keep playing, opt in with the config plugin:
+
+```json
+{
+  "expo": {
+    "plugins": [["expo-precision-metronome", { "backgroundAudio": true }]]
+  }
+}
+```
+
+That adds a `mediaPlayback` foreground service plus its permissions on Android, and the `audio` background mode on iOS. It is opt-in because those permissions show up in your Play Store listing — apps that only need foreground playback should not pay for them.
+
+Then ask for it per playback session:
+
+```ts
+await start(120, { background: true });
+
+// or customise the Android notification
+await start(120, {
+  background: {
+    title: "Practice",
+    text: "4/4 at 120 BPM",
+    color: "#f59e0b",
+  },
+});
+```
+
+Without the plugin, passing `background` rejects with `ERR_BACKGROUND_NOT_CONFIGURED` rather than silently playing in the foreground only.
+
+### What you get, and what you don't
+
+|         | Behaviour                                                                                   |
+| ------- | ------------------------------------------------------------------------------------------- |
+| Android | Ongoing notification with a Stop button; the process is held at foreground-service priority |
+| iOS     | Playback continues for as long as audio is actually being produced                          |
+
+Known limits:
+
+- **Swiping the app out of recents stops the metronome.** The audio engine lives with the JS context, which is destroyed along with the task.
+- **No lock screen transport controls.** A `MediaSession` would compete with the music app you are practising along to for the media widget and headset buttons, so the library deliberately does not register one.
+- **Android 13+** gates the notification behind `POST_NOTIFICATIONS`. Request it from your app; if the user declines, playback still works — the notification is just hidden from the shade.
+- **iOS App Review** expects apps declaring `UIBackgroundModes: audio` to genuinely use it.
+
+### Playing over a backing track
+
+By default starting the metronome interrupts audio from other apps. Pass `mixWithOthers` to keep the backing track playing:
+
+```ts
+await start(120, { background: true, mixWithOthers: true });
+```
+
+On iOS this activates the session with `.mixWithOthers`; on Android it requests `AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK`, so other audio ducks rather than stops. Either way the metronome still yields to a phone call.
+
 ## Usage
 
 ```tsx
@@ -134,9 +191,27 @@ await setPattern(["strong", "normal", "normal"]); // switch to 3/4 mid-song
 
 ### Functions
 
-#### `start(bpm: number): Promise<void>`
+#### `start(bpm: number, options?: StartOptions): Promise<void>`
 
-Starts the metronome at the given BPM. Resolves when the audio engine has started. Throws `RangeError` if `bpm` is outside `BPM_MIN`–`BPM_MAX`.
+Starts the metronome at the given BPM. Resolves when the audio engine has started. Throws `RangeError` if `bpm` is outside `BPM_MIN`–`BPM_MAX`, `TypeError` if `options` are malformed, and rejects with `ERR_BACKGROUND_NOT_CONFIGURED` if `background` is requested without the config plugin. See [Background playback](#background-playback).
+
+| Option          | Type                           | Default | Description                                                 |
+| --------------- | ------------------------------ | ------- | ----------------------------------------------------------- |
+| `background`    | `boolean \| BackgroundOptions` | `false` | Keep playing while backgrounded. Requires the config plugin |
+| `mixWithOthers` | `boolean`                      | `false` | Duck other apps' audio instead of interrupting it           |
+
+`BackgroundOptions` — everything except `title` and `text` is Android-only and ignored on iOS:
+
+| Field                  | Type                                | Default       | Description                                         |
+| ---------------------- | ----------------------------------- | ------------- | --------------------------------------------------- |
+| `title`                | `string`                            | `"Metronome"` | Notification title                                  |
+| `text`                 | `string`                            | `"{bpm} BPM"` | Notification body; the default follows `setBpm()`   |
+| `icon`                 | `string`                            | app icon      | Android: drawable or mipmap resource name           |
+| `color`                | `string`                            | —             | Android: accent colour, e.g. `"#f59e0b"`            |
+| `stopLabel`            | `string`                            | `"Stop"`      | Android: label of the stop button                   |
+| `showStopButton`       | `boolean`                           | `true`        | Android: render the stop button                     |
+| `channelName`          | `string`                            | `"Metronome"` | Android: channel name in system settings            |
+| `lockscreenVisibility` | `"public" \| "private" \| "secret"` | `"public"`    | Android: notification visibility on the lock screen |
 
 #### `stop(): Promise<void>`
 
@@ -174,22 +249,23 @@ Emitted on every beat.
 
 Emitted when the metronome stops for any reason.
 
-| Property | Type                           | Description                                                                                                                |
-| -------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| `reason` | `"explicit" \| "interruption"` | `"explicit"` — stopped by `stop()`. `"interruption"` — stopped by the OS (incoming call, audio session interruption, etc.) |
+| Property | Type                                             | Description                                                                                                                                                                                                  |
+| -------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `reason` | `"explicit" \| "interruption" \| "notification"` | `"explicit"` — stopped by `stop()`. `"interruption"` — stopped by the OS (incoming call, audio focus loss, headphones unplugged). `"notification"` — Android only, the user pressed Stop in the notification |
 
 ---
 
 ### Constants
 
-| Constant                  | Value                                                  | Description                           |
-| ------------------------- | ------------------------------------------------------ | ------------------------------------- |
-| `BPM_MIN`                 | `20`                                                   | Minimum valid BPM                     |
-| `BPM_MAX`                 | `300`                                                  | Maximum valid BPM                     |
-| `SOUND_PRESETS`           | `["click","beep","woodblock","rim","hihat","cowbell"]` | All available sound presets           |
-| `BEAT_ACCENTS`            | `["strong","normal","muted"]`                          | All valid accent levels               |
-| `BEAT_PATTERN_MAX_LENGTH` | `16`                                                   | Maximum beats in a pattern            |
-| `DEFAULT_BEAT_PATTERN`    | `["strong","normal","normal","normal"]`                | Default pattern used when none is set |
+| Constant                  | Value                                                  | Description                            |
+| ------------------------- | ------------------------------------------------------ | -------------------------------------- |
+| `BPM_MIN`                 | `20`                                                   | Minimum valid BPM                      |
+| `BPM_MAX`                 | `300`                                                  | Maximum valid BPM                      |
+| `SOUND_PRESETS`           | `["click","beep","woodblock","rim","hihat","cowbell"]` | All available sound presets            |
+| `BEAT_ACCENTS`            | `["strong","normal","muted"]`                          | All valid accent levels                |
+| `BEAT_PATTERN_MAX_LENGTH` | `16`                                                   | Maximum beats in a pattern             |
+| `DEFAULT_BEAT_PATTERN`    | `["strong","normal","normal","normal"]`                | Default pattern used when none is set  |
+| `LOCKSCREEN_VISIBILITIES` | `["public","private","secret"]`                        | Valid Android lock screen visibilities |
 
 ---
 
@@ -205,10 +281,28 @@ type BeatEventPayload = {
 };
 
 type StopEventPayload = {
-  reason: "explicit" | "interruption";
+  reason: "explicit" | "interruption" | "notification";
 };
 
 type SoundPreset = "click" | "beep" | "woodblock" | "rim" | "hihat" | "cowbell";
+
+type LockscreenVisibility = "public" | "private" | "secret";
+
+type BackgroundOptions = {
+  title?: string;
+  text?: string;
+  icon?: string;
+  color?: string;
+  stopLabel?: string;
+  showStopButton?: boolean;
+  channelName?: string;
+  lockscreenVisibility?: LockscreenVisibility;
+};
+
+type StartOptions = {
+  background?: boolean | BackgroundOptions;
+  mixWithOthers?: boolean;
+};
 ```
 
 #### Accent levels
