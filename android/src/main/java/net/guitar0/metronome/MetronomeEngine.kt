@@ -1,6 +1,7 @@
 package net.guitar0.metronome
 
 import android.content.Context
+import android.content.IntentFilter
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
@@ -8,6 +9,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import androidx.annotation.Keep
+import androidx.core.content.ContextCompat
 import java.util.concurrent.atomic.AtomicBoolean
 
 internal class MetronomeEngine(
@@ -15,26 +17,30 @@ internal class MetronomeEngine(
     private val onEvent: (eventName: String, payload: Map<String, Any>) -> Unit
 ) {
     private var nativeHandle: Long = 0
+    private val appContext = context.applicationContext
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val mainHandler = Handler(Looper.getMainLooper())
     private val running = AtomicBoolean(false)
 
     private var focusRequest: AudioFocusRequest? = null
     private var legacyFocusListener: AudioManager.OnAudioFocusChangeListener? = null
+    private var noisyReceiver: BecomingNoisyReceiver? = null
 
     init {
         nativeHandle = nativeCreate()
     }
 
-    fun start(bpm: Double) {
+    fun start(bpm: Double, mixWithOthers: Boolean = false) {
         if (!running.compareAndSet(false, true)) return
-        requestAudioFocus()
+        requestAudioFocus(mixWithOthers)
+        registerNoisyReceiver()
         nativeStart(nativeHandle, bpm)
     }
 
     fun stop(reason: String?) {
         if (!running.compareAndSet(true, false)) return
         nativeStop(nativeHandle)
+        unregisterNoisyReceiver()
         releaseAudioFocus()
         if (reason != null) {
             mainHandler.post { onEvent("onStop", mapOf("reason" to reason)) }
@@ -80,7 +86,18 @@ internal class MetronomeEngine(
         stop(reason)
     }
 
-    private fun requestAudioFocus() {
+    /**
+     * `mixWithOthers` asks for MAY_DUCK focus instead of exclusive gain: a backing
+     * track in another app keeps playing, just quieter. Focus is still requested
+     * either way, so a phone call still stops the metronome.
+     */
+    private fun requestAudioFocus(mixWithOthers: Boolean) {
+        val gain = if (mixWithOthers) {
+            AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
+        } else {
+            AudioManager.AUDIOFOCUS_GAIN
+        }
+
         val listener = AudioManager.OnAudioFocusChangeListener { change ->
             if (change == AudioManager.AUDIOFOCUS_LOSS ||
                 change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT
@@ -90,7 +107,7 @@ internal class MetronomeEngine(
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+            val req = AudioFocusRequest.Builder(gain)
                 .setAudioAttributes(
                     AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -103,13 +120,25 @@ internal class MetronomeEngine(
             audioManager.requestAudioFocus(req)
         } else {
             @Suppress("DEPRECATION")
-            audioManager.requestAudioFocus(
-                listener,
-                AudioManager.STREAM_MUSIC,
-                AudioManager.AUDIOFOCUS_GAIN
-            )
+            audioManager.requestAudioFocus(listener, AudioManager.STREAM_MUSIC, gain)
             legacyFocusListener = listener
         }
+    }
+
+    private fun registerNoisyReceiver() {
+        val receiver = BecomingNoisyReceiver { stop("interruption") }
+        ContextCompat.registerReceiver(
+            appContext,
+            receiver,
+            IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+        noisyReceiver = receiver
+    }
+
+    private fun unregisterNoisyReceiver() {
+        noisyReceiver?.let { appContext.unregisterReceiver(it) }
+        noisyReceiver = null
     }
 
     private fun releaseAudioFocus() {
