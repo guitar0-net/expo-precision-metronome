@@ -10,6 +10,8 @@ on:
     paths:
       - "src/**"
       - "mocks/**"
+      - "plugin/**"
+      - "app.plugin.js"
       - "package.json"
       - "package-lock.json"
       - "tsconfig.json"
@@ -23,6 +25,8 @@ on:
     paths:
       - "src/**"
       - "mocks/**"
+      - "plugin/**"
+      - "app.plugin.js"
       - "package.json"
       - "package-lock.json"
       - "tsconfig.json"
