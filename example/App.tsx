@@ -37,14 +37,20 @@ export default function App() {
   const [sound, setSoundState] = useState<SoundPreset>('click');
   const [pattern, setPatternState] = useState<BeatAccent[]>([...DEFAULT_BEAT_PATTERN]);
   const [presetIndex, setPresetIndex] = useState<number | null>(0);
+  const [background, setBackground] = useState(true);
+  const [mixWithOthers, setMixWithOthers] = useState(false);
 
-  const stopPayload = useEvent(ExpoPrecisionMetronomeModule, 'onStop');
   const beatPayload = useEvent(ExpoPrecisionMetronomeModule, 'onBeat');
 
+  // Subscribing directly rather than via useEvent: the engine can stop on its own
+  // (interruption, notification button), and the UI has to follow.
   useEffect(() => {
-    if (!stopPayload) return;
-    setIsPlaying(false);
-  }, [stopPayload]);
+    const subscription = ExpoPrecisionMetronomeModule.addListener('onStop', ({ reason }) => {
+      console.log(`Stopped: ${reason}`);
+      setIsPlaying(false);
+    });
+    return () => subscription.remove();
+  }, []);
 
   const activeBeat = beatPayload ? beatPayload.beat % pattern.length : -1;
 
@@ -55,9 +61,14 @@ export default function App() {
 
   const handlePlay = () => {
     setPattern(pattern)
-      .then(() => start(bpm))
-      .catch(console.error);
-    setIsPlaying(true);
+      .then(() => start(bpm, { background, mixWithOthers }))
+      .then(() => setIsPlaying(true))
+      .catch((error) => {
+        // start() rejects with ERR_BACKGROUND_NOT_CONFIGURED when the config
+        // plugin is missing, so the UI must not assume it started.
+        setIsPlaying(false);
+        console.error(error);
+      });
   };
 
   const handleStop = () => {
@@ -199,6 +210,27 @@ export default function App() {
           )}
         </View>
         <Text style={styles.patternHint}>Tap a beat to cycle: S strong · N normal · M muted</Text>
+
+        {/* Playback behaviour — takes effect on the next Play */}
+        <Text style={styles.sectionLabel}>Playback</Text>
+        <View style={styles.presetRow}>
+          <TouchableOpacity
+            style={[styles.presetButton, background && styles.presetButtonActive]}
+            onPress={() => setBackground((value) => !value)}>
+            <Text style={[styles.presetButtonText, background && styles.presetButtonTextActive]}>
+              Background
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.presetButton, mixWithOthers && styles.presetButtonActive]}
+            onPress={() => setMixWithOthers((value) => !value)}>
+            <Text
+              style={[styles.presetButtonText, mixWithOthers && styles.presetButtonTextActive]}>
+              Mix with others
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.patternHint}>Applies on the next Play</Text>
 
         {/* Play / Stop */}
         <View style={styles.controlRow}>
