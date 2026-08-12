@@ -4,7 +4,9 @@ import type { ConfigPlugin } from "expo/config-plugins";
 import { withBackgroundAudioAndroid } from "./withBackgroundAudioAndroid";
 import { withBackgroundAudioIos } from "./withBackgroundAudioIos";
 
-const pkg = require("expo-precision-metronome/package.json");
+// Relative rather than by package name: the example app links the module through
+// `autolinking.nativeModulesDir` and never installs it into node_modules.
+const pkg = require("../../package.json");
 
 export type MetronomePluginProps = {
   /**
