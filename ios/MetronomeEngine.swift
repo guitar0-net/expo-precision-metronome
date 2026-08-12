@@ -33,14 +33,17 @@ final class MetronomeEngine {
 
     // MARK: - Public API
 
-    func start(bpm: Double) throws {
+    /// `mixWithOthers: true` lets backing tracks from other apps keep playing —
+    /// the common case for a metronome. It only takes effect on the next start,
+    /// since the category is applied when the session is activated.
+    func start(bpm: Double, mixWithOthers: Bool = false) throws {
         currentBPM = bpm
 
         if engine?.isRunning == true {
             return
         }
 
-        try launchEngine()
+        try launchEngine(mixWithOthers: mixWithOthers)
     }
 
     func setBpm(bpm: Double) {
@@ -96,7 +99,7 @@ final class MetronomeEngine {
         }
     }
 
-    private func launchEngine() throws {
+    private func launchEngine(mixWithOthers: Bool) throws {
         let newEngine = AVAudioEngine()
 
         let hwRate = newEngine.outputNode.outputFormat(forBus: 0).sampleRate
@@ -121,7 +124,11 @@ final class MetronomeEngine {
         newEngine.attach(node)
         newEngine.connect(node, to: newEngine.mainMixerNode, format: format)
 
-        try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+        try AVAudioSession.sharedInstance().setCategory(
+            .playback,
+            mode: .default,
+            options: mixWithOthers ? [.mixWithOthers] : []
+        )
         try AVAudioSession.sharedInstance().setActive(true)
         try newEngine.start()
 
