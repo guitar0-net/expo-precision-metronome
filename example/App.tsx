@@ -14,7 +14,25 @@ import ExpoPrecisionMetronomeModule, {
   stop,
 } from 'expo-precision-metronome';
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  PermissionsAndroid,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+
+/**
+ * Android 13+ hides the foreground-service notification unless the user granted
+ * POST_NOTIFICATIONS. Playback works either way, but the Stop button would be
+ * unreachable, so the app asks — this is the consumer's job, not the library's.
+ */
+async function requestNotificationPermission() {
+  if (Platform.OS !== 'android' || Number(Platform.Version) < 33) return;
+  await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+}
 
 const PATTERN_PRESETS: { label: string; pattern: readonly BeatAccent[] }[] = [
   { label: '4/4', pattern: ['strong', 'normal', 'normal', 'normal'] },
@@ -60,7 +78,8 @@ export default function App() {
   };
 
   const handlePlay = () => {
-    setPattern(pattern)
+    (background ? requestNotificationPermission() : Promise.resolve())
+      .then(() => setPattern(pattern))
       .then(() => start(bpm, { background, mixWithOthers }))
       .then(() => setIsPlaying(true))
       .catch((error) => {
