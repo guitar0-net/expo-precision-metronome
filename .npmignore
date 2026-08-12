@@ -16,6 +16,9 @@ __tests__
 
 # TypeScript sources (consumers use build/ only)
 /src/
+/plugin/src/
+/plugin/tsconfig.json
+*.tsbuildinfo
 
 # Jest mocks
 /mocks/

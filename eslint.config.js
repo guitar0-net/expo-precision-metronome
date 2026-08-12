@@ -25,5 +25,5 @@ module.exports = defineConfig([
       "import/no-duplicates": "error",
     },
   },
-  globalIgnores(["build/**", "node_modules/**"]),
+  globalIgnores(["build/**", "plugin/build/**", "node_modules/**"]),
 ]);

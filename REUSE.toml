@@ -27,7 +27,7 @@ SPDX-FileCopyrightText = "2026 Andrey Kotlyar <kotlyar562@gmail.com>"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = ["src/**", "android/**", "ios/**"]
+path = ["src/**", "android/**", "ios/**", "plugin/**"]
 precedence = "closest"
 SPDX-FileCopyrightText = "2026 Andrey Kotlyar <kotlyar562@gmail.com>"
 SPDX-License-Identifier = "MIT"
