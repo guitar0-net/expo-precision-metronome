@@ -69,7 +69,7 @@ PODS:
   - ExpoModulesWorklets (56.0.23):
     - ExpoModulesCore
     - ExpoModulesJSI
-  - ExpoPrecisionMetronome (1.2.0):
+  - ExpoPrecisionMetronome (1.3.0):
     - ExpoModulesCore
   - FBLazyVector (0.85.3)
   - hermes-engine (250829098.0.10):
@@ -2137,7 +2137,7 @@ SPEC CHECKSUMS:
   ExpoModulesCore: 59843fa08fd01e8f60a1b0cc36f6186e0592b0c7
   ExpoModulesJSI: 420a2dee5f7c1fa87f4a610b550b7671b5d33266
   ExpoModulesWorklets: c28b609c3a7779575c1d7f8030948e7aa3d57e70
-  ExpoPrecisionMetronome: 5c8bfddc68c59297700b882d715aa712d0e7a806
+  ExpoPrecisionMetronome: 3257df6553099839db4289006cd558149c83afa4
   FBLazyVector: 24e62c765683b8d89006a88a2c8f5cf019f0074d
   hermes-engine: 0fec40040e81dc71e1939d4215751405629b300b
   RCTDeprecation: a4c521821fab57cbb125b36effe84d897d0dfa12
