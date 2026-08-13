@@ -107,6 +107,7 @@ jobs:
             -sdk iphonesimulator \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO \
+            -parallelizeTargets \
             -quiet
 
       - name: Autobuild (javascript-typescript)
