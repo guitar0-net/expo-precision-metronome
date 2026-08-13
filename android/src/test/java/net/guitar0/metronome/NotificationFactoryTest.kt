@@ -1,17 +1,19 @@
 package net.guitar0.metronome
 
 import androidx.core.app.NotificationCompat
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
 
 @RunWith(AndroidJUnit4::class)
+@Config(sdk = [34])
 class NotificationFactoryTest {
 
-    private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
+    private val context get() = ApplicationProvider.getApplicationContext<android.content.Context>()
 
     @Test
     fun default_text_reports_the_current_tempo() {
