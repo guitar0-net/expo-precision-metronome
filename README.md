@@ -48,7 +48,7 @@ npx expo install expo-precision-metronome
 
 ## Background playback
 
-By default the metronome only plays while your app is in the foreground. Nothing stops it the moment you background the app, but nothing protects it either: on Android the process drops to the `cached` bucket and is the first thing the low-memory killer takes, and on iOS the app is suspended a few seconds after it leaves the screen. Emulators and simulators hide this — real devices do not.
+`background` asks the OS to **protect** playback, not to enable it. Nothing stops the metronome the moment you background the app — but without this, nothing keeps it alive either: on Android the process drops to the `cached` bucket and is the first thing the low-memory killer takes, and on iOS the app is suspended a few seconds after it leaves the screen. Emulators and simulators hide this — real devices do not.
 
 To keep playing, opt in with the config plugin:
 
@@ -88,6 +88,7 @@ Without the plugin, passing `background` rejects with `ERR_BACKGROUND_NOT_CONFIG
 
 Known limits:
 
+- **`background` is a per-call request, but the entitlement it needs is app-wide.** Once the plugin is enabled, `UIBackgroundModes: audio` applies to the whole iOS app, so a session started _without_ `background` also keeps playing after you leave the screen — it just has no notification and no Android foreground service behind it. Call `stop()` from your own `AppState` handler if a session must not outlive the foreground.
 - **Swiping the app out of recents stops the metronome.** The audio engine lives with the JS context, which is destroyed along with the task.
 - **No lock screen transport controls.** A `MediaSession` would compete with the music app you are practising along to for the media widget and headset buttons, so the library deliberately does not register one.
 - **Android 13+** gates the notification behind `POST_NOTIFICATIONS`. Request it from your app; if the user declines, playback still works — the notification is just hidden from the shade.
@@ -193,7 +194,9 @@ await setPattern(["strong", "normal", "normal"]); // switch to 3/4 mid-song
 
 #### `start(bpm: number, options?: StartOptions): Promise<void>`
 
-Starts the metronome at the given BPM. Resolves when the audio engine has started. Throws `RangeError` if `bpm` is outside `BPM_MIN`–`BPM_MAX`, `TypeError` if `options` are malformed, and rejects with `ERR_BACKGROUND_NOT_CONFIGURED` if `background` is requested without the config plugin. See [Background playback](#background-playback).
+Starts the metronome at the given BPM. Resolves when the audio engine has started. Rejects with `RangeError` if `bpm` is outside `BPM_MIN`–`BPM_MAX`, `TypeError` if `options` are malformed, and `ERR_BACKGROUND_NOT_CONFIGURED` if `background` is requested without the config plugin. See [Background playback](#background-playback).
+
+Calling `start()` on a metronome that is already running **restarts** it so the new `bpm` and `options` take effect; the restart is silent, so no `onStop` is emitted. Use `setBpm()` to change tempo without the gap.
 
 | Option          | Type                           | Default | Description                                                 |
 | --------------- | ------------------------------ | ------- | ----------------------------------------------------------- |
