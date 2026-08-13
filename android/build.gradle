@@ -43,6 +43,12 @@ android {
     checkDependencies false
   }
 
+  testOptions {
+    unitTests {
+      includeAndroidResources = true
+    }
+  }
+
   packaging {
     jniLibs {
       pickFirsts += ["lib/**/libc++_shared.so"]
@@ -54,7 +60,12 @@ dependencies {
   implementation "com.google.oboe:oboe:1.9.3"
 
   testImplementation 'junit:junit:4.13.2'
+  // Robolectric so the notification and service tests run in the normal `test` task —
+  // an instrumented-only suite needs an emulator and would not run in CI at all.
+  testImplementation 'org.robolectric:robolectric:4.16'
+  testImplementation 'androidx.test.ext:junit:1.2.1'
 
+  // MetronomeStreamTest opens a real Oboe stream, so it stays instrumented.
   androidTestImplementation 'androidx.test.ext:junit:1.1.5'
   androidTestImplementation 'androidx.test:runner:1.5.2'
   androidTestImplementation 'androidx.test:rules:1.5.0'
