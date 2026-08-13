@@ -62,6 +62,9 @@ To keep playing, opt in with the config plugin:
 
 That adds a `mediaPlayback` foreground service plus its permissions on Android, and the `audio` background mode on iOS. It is opt-in because those permissions show up in your Play Store listing — apps that only need foreground playback should not pay for them.
 
+> [!IMPORTANT]
+> Config plugins only run during `npx expo prebuild` — EAS Build does this for you. If your project keeps `android/` and `ios/` in version control and never prebuilds, the plugin never applies. Run `npx expo prebuild` once (it merges into existing native projects), or add the entries by hand: `UIBackgroundModes: audio` in `Info.plist`, and in `AndroidManifest.xml` the `net.guitar0.metronome.MetronomeService` declaration plus the `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK` and `POST_NOTIFICATIONS` permissions.
+
 Then ask for it per playback session:
 
 ```ts

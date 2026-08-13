@@ -61,9 +61,11 @@ class StartOptions : Record {
 
 class BackgroundNotConfiguredException :
     CodedException(
-        "Background playback requires a foreground service declaration. " +
-            "Add the config plugin to your app config: " +
-            "[\"expo-precision-metronome\", { \"backgroundAudio\": true }]"
+        "Background playback requires the MetronomeService declaration and its " +
+            "foreground service permissions. Add the config plugin to your app config — " +
+            "[\"expo-precision-metronome\", { \"backgroundAudio\": true }] — then run " +
+            "`npx expo prebuild`. Projects that never prebuild must declare them in " +
+            "AndroidManifest.xml by hand."
     )
 
 class ExpoPrecisionMetronomeModule : Module() {
