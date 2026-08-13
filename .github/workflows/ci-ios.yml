@@ -96,6 +96,9 @@ jobs:
       - name: Install root dependencies
         run: npm ci
 
+      - name: Build plugin and package
+        run: npm run build
+
       - name: Install example dependencies
         working-directory: example
         run: npm ci
