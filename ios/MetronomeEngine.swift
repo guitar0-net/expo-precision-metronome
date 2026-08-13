@@ -34,15 +34,18 @@ final class MetronomeEngine {
     // MARK: - Public API
 
     /// `mixWithOthers: true` lets backing tracks from other apps keep playing —
-    /// the common case for a metronome. It only takes effect on the next start,
-    /// since the category is applied when the session is activated.
+    /// the common case for a metronome.
+    ///
+    /// Calling this on a running engine restarts it. The session category is only
+    /// applied when the session is activated, so without the restart a second
+    /// `start()` would silently keep the previous call's `mixWithOthers`.
     func start(bpm: Double, mixWithOthers: Bool = false) throws {
-        currentBPM = bpm
-
-        if engine?.isRunning == true {
-            return
+        if isRunning {
+            // Silent: JS asked for a restart, not for a stop.
+            stop(reason: nil)
         }
 
+        currentBPM = bpm
         try launchEngine(mixWithOthers: mixWithOthers)
     }
 
