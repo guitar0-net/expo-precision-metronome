@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 internal class MetronomeEngine(
     context: Context,
     private val onEvent: (eventName: String, payload: Map<String, Any>) -> Unit
-) {
+) : PlaybackController {
     private var nativeHandle: Long = 0
     private val appContext = context.applicationContext
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -30,14 +30,22 @@ internal class MetronomeEngine(
         nativeHandle = nativeCreate()
     }
 
-    fun start(bpm: Double, mixWithOthers: Boolean = false) {
-        if (!running.compareAndSet(false, true)) return
+    override val isRunning: Boolean get() = running.get()
+
+    /**
+     * No-op on an already-running stream — callers that need the new [bpm] or
+     * [mixWithOthers] to take effect must [stop] first. Returns whether the stream
+     * was actually opened, so the caller can tell the two cases apart.
+     */
+    fun start(bpm: Double, mixWithOthers: Boolean = false): Boolean {
+        if (!running.compareAndSet(false, true)) return false
         requestAudioFocus(mixWithOthers)
         registerNoisyReceiver()
         nativeStart(nativeHandle, bpm)
+        return true
     }
 
-    fun stop(reason: String?) {
+    override fun stop(reason: String?) {
         if (!running.compareAndSet(true, false)) return
         nativeStop(nativeHandle)
         unregisterNoisyReceiver()

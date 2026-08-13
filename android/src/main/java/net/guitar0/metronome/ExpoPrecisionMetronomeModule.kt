@@ -83,7 +83,10 @@ class ExpoPrecisionMetronomeModule : Module() {
             val newEngine = MetronomeEngine(context) { eventName, payload ->
                 // Every stop path funnels through here — explicit, audio focus loss,
                 // native error, notification button — so the service is torn down once.
-                if (eventName == "onStop") {
+                // onStop is posted to the main looper, so it can land after a fresh
+                // start() has already put the service back up; only tear down when
+                // playback really is over.
+                if (eventName == "onStop" && !MetronomeEngineHolder.isRunning) {
                     stopBackgroundService()
                 }
                 sendEvent(eventName, payload)
@@ -111,12 +114,21 @@ class ExpoPrecisionMetronomeModule : Module() {
                 requireBackgroundConfigured()
             }
 
+            // MetronomeEngine.start() is a no-op on a live stream, so calling start()
+            // twice would otherwise record the new bpm/options here while playback kept
+            // the old ones — and leave the service running against options it no longer
+            // matches. Tear the stream down first so every start() means the same thing.
+            // Silent (`null`), because JS asked for a restart, not for a stop.
+            engine?.stop(null)
+
             MetronomeEngineHolder.backgroundOptions = background
             MetronomeEngineHolder.bpm = bpm
             engine?.start(bpm, options?.mixWithOthers ?: false)
 
             if (background != null) {
                 startBackgroundService()
+            } else {
+                stopBackgroundService()
             }
         }
 

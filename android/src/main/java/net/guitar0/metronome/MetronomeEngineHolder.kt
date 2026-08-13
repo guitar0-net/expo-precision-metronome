@@ -1,6 +1,16 @@
 package net.guitar0.metronome
 
 /**
+ * The slice of the audio engine that [MetronomeEngineHolder] and [MetronomeService]
+ * depend on. Narrow on purpose: it keeps the holder free of JNI so its state machine
+ * can be exercised by plain JVM unit tests.
+ */
+internal interface PlaybackController {
+    val isRunning: Boolean
+    fun stop(reason: String?)
+}
+
+/**
  * Process-wide bridge between the Expo module, which owns the engine, and
  * [MetronomeService], which only holds the process at foreground priority.
  *
@@ -11,7 +21,7 @@ package net.guitar0.metronome
  */
 internal object MetronomeEngineHolder {
     @Volatile
-    private var engine: MetronomeEngine? = null
+    private var engine: PlaybackController? = null
 
     /** Non-null only while background playback is active — the service reads it to build its notification. */
     @Volatile
@@ -20,11 +30,13 @@ internal object MetronomeEngineHolder {
     @Volatile
     var bpm: Double = 0.0
 
-    fun attach(engine: MetronomeEngine) {
+    val isRunning: Boolean get() = engine?.isRunning == true
+
+    fun attach(engine: PlaybackController) {
         this.engine = engine
     }
 
-    fun detach(engine: MetronomeEngine) {
+    fun detach(engine: PlaybackController) {
         if (this.engine === engine) {
             this.engine = null
             backgroundOptions = null
