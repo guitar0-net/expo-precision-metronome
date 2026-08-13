@@ -1,5 +1,6 @@
 package net.guitar0.metronome
 
+import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -166,10 +167,14 @@ class ExpoPrecisionMetronomeModule : Module() {
 
     /**
      * The service is only declared when the config plugin ran, so resolving it is a
-     * direct check that the consumer opted in.
+     * direct check that the consumer opted in. The permissions are checked too: a
+     * hand-written manifest can declare the service and omit them, and the failure
+     * mode then is a SecurityException from startForeground() rather than a coded
+     * error JS can act on.
      */
     private fun requireBackgroundConfigured() {
         val context = androidContext ?: throw BackgroundNotConfiguredException()
+
         val intent = MetronomeService.intent(context)
         val resolved = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             context.packageManager.resolveService(intent, PackageManager.ResolveInfoFlags.of(0L))
@@ -180,7 +185,19 @@ class ExpoPrecisionMetronomeModule : Module() {
         if (resolved == null) {
             throw BackgroundNotConfiguredException()
         }
+
+        if (!hasPermission(context, Manifest.permission.FOREGROUND_SERVICE)) {
+            throw BackgroundNotConfiguredException()
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE &&
+            !hasPermission(context, Manifest.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK)
+        ) {
+            throw BackgroundNotConfiguredException()
+        }
     }
+
+    private fun hasPermission(context: Context, permission: String): Boolean =
+        ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 
     private fun startBackgroundService() {
         val context = androidContext ?: return
