@@ -21,8 +21,10 @@ struct StartOptions: Record {
 final class BackgroundNotConfiguredException: Exception {
     override var reason: String {
         "Background playback requires the 'audio' entry in UIBackgroundModes. "
-            + "Add the config plugin to your app config: "
-            + "[\"expo-precision-metronome\", { \"backgroundAudio\": true }]"
+            + "Add the config plugin to your app config — "
+            + "[\"expo-precision-metronome\", { \"backgroundAudio\": true }] — then run "
+            + "`npx expo prebuild`. Projects that never prebuild must add it to "
+            + "Info.plist by hand."
     }
 }
 
