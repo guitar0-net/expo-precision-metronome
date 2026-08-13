@@ -66,7 +66,17 @@ class MetronomeService : Service() {
 
         const val STOP_REASON_NOTIFICATION = "notification"
 
-        fun intent(context: Context, action: String? = null): Intent =
-            Intent(context, MetronomeService::class.java).apply { this.action = action }
+        /**
+         * The class argument already pins the destination, but that guarantee is invisible
+         * to static analysis once it passes through `apply {}`. Setting the package restates
+         * it plainly: this intent is wrapped in a PendingIntent handed to the notification
+         * shade, and it must never be deliverable by another app.
+         */
+        fun intent(context: Context, action: String? = null): Intent {
+            val intent = Intent(context, MetronomeService::class.java)
+            intent.setPackage(context.packageName)
+            intent.action = action
+            return intent
+        }
     }
 }
