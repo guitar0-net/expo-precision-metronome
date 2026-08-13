@@ -62,7 +62,6 @@ class MetronomeService : Service() {
 
     companion object {
         const val ACTION_START = "net.guitar0.metronome.action.START"
-        const val ACTION_UPDATE = "net.guitar0.metronome.action.UPDATE"
         const val ACTION_STOP = "net.guitar0.metronome.action.STOP"
 
         const val STOP_REASON_NOTIFICATION = "notification"

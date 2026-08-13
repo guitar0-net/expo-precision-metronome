@@ -1,9 +1,11 @@
 package net.guitar0.metronome
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.modules.Module
@@ -144,7 +146,7 @@ class ExpoPrecisionMetronomeModule : Module() {
             // Only the generated "{bpm} BPM" text tracks the tempo; a caller-supplied
             // text stays as it is, so there is nothing to redraw.
             if (MetronomeEngineHolder.backgroundOptions?.text == null) {
-                updateBackgroundService()
+                refreshNotification()
             }
         }
 
@@ -209,12 +211,32 @@ class ExpoPrecisionMetronomeModule : Module() {
         )
     }
 
-    private fun updateBackgroundService() {
+    /**
+     * POST_NOTIFICATIONS is declared by the config plugin in the consumer's manifest,
+     * never by this library — an opt-in feature must not push the permission onto apps
+     * that only ever play in the foreground. Lint only sees the library manifest, so it
+     * cannot know that; [canPostNotifications] is the real guard.
+     */
+    private fun canPostNotifications(context: Context): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            hasPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+
+    /**
+     * Redraws the ongoing notification in place instead of routing through the
+     * service. `startForegroundService()` per tempo change is an ActivityManager
+     * round-trip, and a BPM slider fires one of these per frame.
+     */
+    @SuppressLint("MissingPermission")
+    private fun refreshNotification() {
         val context = androidContext ?: return
-        if (MetronomeEngineHolder.backgroundOptions == null) return
-        ContextCompat.startForegroundService(
-            context,
-            MetronomeService.intent(context, MetronomeService.ACTION_UPDATE)
+        val options = MetronomeEngineHolder.backgroundOptions ?: return
+        // Without the permission the notification is hidden anyway, so the post would
+        // only be dropped by the system.
+        if (!canPostNotifications(context)) return
+
+        NotificationManagerCompat.from(context).notify(
+            NotificationFactory.NOTIFICATION_ID,
+            NotificationFactory.build(context, options, MetronomeEngineHolder.bpm)
         )
     }
 
@@ -222,5 +244,9 @@ class ExpoPrecisionMetronomeModule : Module() {
         val context = androidContext ?: return
         MetronomeEngineHolder.backgroundOptions = null
         context.stopService(MetronomeService.intent(context))
+        // Belt and braces: the service owns the notification and drops it on destroy,
+        // but stopService() is asynchronous and a refresh may have posted one while the
+        // service was still starting up.
+        NotificationManagerCompat.from(context).cancel(NotificationFactory.NOTIFICATION_ID)
     }
 }
