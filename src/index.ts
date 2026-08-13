@@ -107,6 +107,13 @@ function toNativeOptions(options: StartOptions): NativeStartOptions {
   return native;
 }
 
+/**
+ * Starts the metronome at `bpm`.
+ *
+ * Restarts the engine when it is already running, so the new tempo and options
+ * always take effect. The restart emits no `onStop` — use `setBpm()` to change
+ * tempo without the audible gap.
+ */
 export async function start(bpm: number, options?: StartOptions): Promise<void> {
   assertBpm(bpm);
   if (options === undefined) {
