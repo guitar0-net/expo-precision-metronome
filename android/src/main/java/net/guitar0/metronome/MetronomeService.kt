@@ -21,12 +21,30 @@ class MetronomeService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val options = MetronomeEngineHolder.backgroundOptions
-        if (options == null) {
-            // The engine already stopped — never promote to the foreground.
-            stopSelf()
-            return START_NOT_STICKY
+
+        // Promote unconditionally, before deciding anything else. Every delivery here
+        // is armed by startForegroundService(), and returning from onStartCommand()
+        // without startForeground() is a ForegroundServiceDidNotStartInTimeException —
+        // including when the reason to bail is that playback has already ended. That
+        // case is reachable: the engine can fail or be interrupted between start()
+        // launching the service and the service being handed the intent, which nulls
+        // the options from the main thread. Defaults stand in for that window; the
+        // notification is torn down again by stopSelf() a few lines down.
+        promoteToForeground(options ?: BackgroundOptions())
+
+        when {
+            options == null -> stopSelf()
+
+            intent?.action == ACTION_STOP -> {
+                MetronomeEngineHolder.stop(STOP_REASON_NOTIFICATION)
+                stopSelf()
+            }
         }
 
+        return START_NOT_STICKY
+    }
+
+    private fun promoteToForeground(options: BackgroundOptions) {
         NotificationFactory.createChannel(this, options.channelName)
         ServiceCompat.startForeground(
             this,
@@ -34,15 +52,6 @@ class MetronomeService : Service() {
             NotificationFactory.build(this, options, MetronomeEngineHolder.bpm),
             ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
         )
-
-        if (intent?.action == ACTION_STOP) {
-            // Promoting first and stopping straight after keeps the 5 s
-            // startForeground() deadline satisfied on every delivery path.
-            MetronomeEngineHolder.stop(STOP_REASON_NOTIFICATION)
-            stopSelf()
-        }
-
-        return START_NOT_STICKY
     }
 
     /** Swiping the app away tears down the JS context, so stop silently. */
