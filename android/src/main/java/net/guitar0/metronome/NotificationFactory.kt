@@ -86,9 +86,8 @@ internal object NotificationFactory {
     private fun launchIntent(context: Context): PendingIntent? {
         val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
             ?: return null
-        // The resolved intent already carries a component, but static analysis cannot see
-        // that through the PackageManager call. Restating the package keeps the intent
-        // explicit, so the notification never hands a rewritable PendingIntent to another app.
+        // Defence in depth: the resolved intent already carries a launcher component, and
+        // restating the package keeps the content intent aimed at this app regardless.
         intent.setPackage(context.packageName)
         return PendingIntent.getActivity(context, 0, intent, PENDING_INTENT_FLAGS)
     }
