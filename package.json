@@ -1,6 +1,6 @@
 {
   "name": "expo-precision-metronome",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "High-precision metronome engine for Expo and React Native with native audio scheduling support.",
   "main": "build/index.js",
   "types": "build/index.d.ts",
