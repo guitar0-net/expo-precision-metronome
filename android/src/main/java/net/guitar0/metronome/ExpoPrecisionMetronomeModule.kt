@@ -75,7 +75,7 @@ class ExpoPrecisionMetronomeModule : Module() {
     override fun definition() = ModuleDefinition {
         Name("ExpoPrecisionMetronome")
 
-        Events("onBeat", "onStop")
+        Events("onBeat", "onPlaybackChange")
 
         OnCreate {
             val context =
@@ -86,10 +86,11 @@ class ExpoPrecisionMetronomeModule : Module() {
             this@ExpoPrecisionMetronomeModule.androidContext = context
 
             val newEngine = MetronomeEngine(context) { eventName, payload ->
-                // The engine reports only the stops it decided on itself — audio focus
-                // loss, headphones unplugged, a native stream error. Routing them
-                // through the session means every cause, including the notification
-                // button and JS, produces one transition and one event.
+                // "onStop" here is the engine's own signal, not a JS event: it reports
+                // only the stops it decided on itself — audio focus loss, headphones
+                // unplugged, a native stream error. Routing them through the session
+                // means every cause, including the notification button and JS, produces
+                // one transition and one onPlaybackChange.
                 if (eventName == "onStop") {
                     MetronomeSession.stop(payload["reason"] as? String)
                 } else {
@@ -142,7 +143,19 @@ class ExpoPrecisionMetronomeModule : Module() {
         }
 
         AsyncFunction("stop") {
-            MetronomeSession.stop(STOP_REASON_EXPLICIT)
+            MetronomeSession.stop(REASON_EXPLICIT)
+        }
+
+        // The snapshot is already the single source of truth, so this is a read of it
+        // rather than a poll of the engine — which is what makes it safe to call from a
+        // component that mounted after the transition it missed.
+        AsyncFunction("getState") {
+            val state = MetronomeSession.state
+            mapOf(
+                "state" to state.playback.jsName,
+                "bpm" to state.bpm,
+                "notificationVisible" to isNotificationVisible(state)
+            )
         }
 
         AsyncFunction("setBpm") { bpm: Double ->
@@ -168,12 +181,31 @@ class ExpoPrecisionMetronomeModule : Module() {
      * same path.
      */
     private fun onSessionChange(old: MetronomeState, new: MetronomeState) {
-        if (new.playback != old.playback && new.playback == Playback.Stopped) {
-            // Silent: the event for this transition is sent below, from the snapshot.
-            engine?.stop(null)
-            new.reason?.let { sendEvent("onStop", mapOf("reason" to it)) }
+        if (new.playback != old.playback) {
+            if (new.playback == Playback.Stopped) {
+                // Silent: the event for this transition is sent below, from the snapshot.
+                engine?.stop(null)
+            }
+            // A null reason means JS either asked for this itself or is no longer there
+            // to hear about it — a restart, or teardown.
+            new.reason?.let {
+                sendEvent(
+                    "onPlaybackChange",
+                    mapOf("state" to new.playback.jsName, "reason" to it)
+                )
+            }
         }
         syncBackgroundService(old, new)
+    }
+
+    /**
+     * The notification is the only way to reach pause from outside the app, so an app
+     * that cannot post one has to be able to tell — see `requestNotificationPermission`.
+     */
+    private fun isNotificationVisible(state: MetronomeState): Boolean {
+        if (state.background == null) return false
+        val context = androidContext ?: return false
+        return NotificationManagerCompat.from(context).areNotificationsEnabled()
     }
 
     /**
@@ -256,6 +288,6 @@ class ExpoPrecisionMetronomeModule : Module() {
     }
 
     private companion object {
-        const val STOP_REASON_EXPLICIT = "explicit"
+        const val REASON_EXPLICIT = "explicit"
     }
 }

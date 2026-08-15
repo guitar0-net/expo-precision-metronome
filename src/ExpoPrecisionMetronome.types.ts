@@ -22,6 +22,10 @@ export const DEFAULT_BEAT_PATTERN: readonly BeatAccent[] = [
 ];
 
 export type BeatEventPayload = {
+  /**
+   * Counts from `start()` **or** `resume()` — resuming re-enters on the downbeat,
+   * so a bar number derived from this (`Math.floor(beat / 4)`) restarts too.
+   */
   beat: number;
   timestamp: number;
   accent: BeatAccent;
@@ -45,6 +49,10 @@ export type BackgroundOptions = {
   color?: string;
   /** Android: label of the stop button. @default "Stop" */
   stopLabel?: string;
+  /** Android: label of the pause button. @default "Pause" */
+  pauseLabel?: string;
+  /** Android: label of the resume button. @default "Resume" */
+  resumeLabel?: string;
   /** Android: @default true */
   showStopButton?: boolean;
   /** Android: channel name shown in system settings. @default "Metronome" */
@@ -76,12 +84,29 @@ export type NativeStartOptions = {
   mixWithOthers?: boolean;
 };
 
-export type StopEventPayload = {
-  /** `"notification"` is Android-only — the user pressed Stop in the notification. */
-  reason: "explicit" | "interruption" | "notification";
+/** `paused` keeps the audio engine alive and silences it; `stopped` tears it down. */
+export type PlaybackState = "running" | "paused" | "stopped";
+
+/** `"notification"` is Android-only — the user pressed a button in the notification. */
+export type PlaybackChangeReason = "explicit" | "notification" | "interruption";
+
+export type PlaybackEventPayload = {
+  state: PlaybackState;
+  reason: PlaybackChangeReason;
+};
+
+export type MetronomeState = {
+  state: PlaybackState;
+  bpm: number;
+  /**
+   * Android: `false` when background playback was requested but POST_NOTIFICATIONS
+   * was not granted — the notification is hidden, so pause is only reachable from
+   * inside the app. Always `false` on iOS.
+   */
+  notificationVisible: boolean;
 };
 
 export type ExpoPrecisionMetronomeModuleEvents = {
   onBeat: (params: BeatEventPayload) => void;
-  onStop: (params: StopEventPayload) => void;
+  onPlaybackChange: (params: PlaybackEventPayload) => void;
 };

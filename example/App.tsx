@@ -5,6 +5,10 @@ import ExpoPrecisionMetronomeModule, {
   BPM_MAX,
   BPM_MIN,
   DEFAULT_BEAT_PATTERN,
+  getState,
+  pause,
+  PlaybackState,
+  resume,
   setPattern,
   SOUND_PRESETS,
   SoundPreset,
@@ -51,7 +55,7 @@ const ACCENT_COLOR: Record<BeatAccent, string> = {
 
 export default function App() {
   const [bpm, setBpm] = useState(120);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [playback, setPlayback] = useState<PlaybackState>('stopped');
   const [sound, setSoundState] = useState<SoundPreset>('click');
   const [pattern, setPatternState] = useState<BeatAccent[]>([...DEFAULT_BEAT_PATTERN]);
   const [presetIndex, setPresetIndex] = useState<number | null>(0);
@@ -60,45 +64,72 @@ export default function App() {
 
   const beatPayload = useEvent(ExpoPrecisionMetronomeModule, 'onBeat');
 
-  // Subscribing directly rather than via useEvent: the engine can stop on its own
-  // (interruption, notification button), and the UI has to follow.
+  // Subscribing directly rather than via useEvent: playback can change without JS
+  // asking (interruption, notification buttons), and the UI has to follow.
   useEffect(() => {
-    const subscription = ExpoPrecisionMetronomeModule.addListener('onStop', ({ reason }) => {
-      console.log(`Stopped: ${reason}`);
-      setIsPlaying(false);
-    });
+    const subscription = ExpoPrecisionMetronomeModule.addListener(
+      'onPlaybackChange',
+      ({ state, reason }) => {
+        console.log(`Playback ${state}: ${reason}`);
+        setPlayback(state);
+      },
+    );
     return () => subscription.remove();
   }, []);
 
+  // Events only cover transitions this component was mounted for. Coming back from
+  // the background after pausing from the shade, the transition is already gone —
+  // so reconcile against the engine on mount.
+  useEffect(() => {
+    getState()
+      .then(({ state, bpm: currentBpm }) => {
+        setPlayback(state);
+        if (state !== 'stopped') setBpm(currentBpm);
+      })
+      .catch(console.error);
+  }, []);
+
+  // "Live" rather than "audible": a paused engine still banks setBpm/setPattern and
+  // applies them on resume, so the same guard covers both states.
+  const isLive = playback !== 'stopped';
   const activeBeat = beatPayload ? beatPayload.beat % pattern.length : -1;
 
   const applyPattern = (next: BeatAccent[]) => {
     setPatternState(next);
-    if (isPlaying) setPattern(next).catch(console.error);
+    if (isLive) setPattern(next).catch(console.error);
   };
 
   const handlePlay = () => {
     (background ? requestNotificationPermission() : Promise.resolve())
       .then(() => setPattern(pattern))
       .then(() => start(bpm, { background, mixWithOthers }))
-      .then(() => setIsPlaying(true))
+      .then(() => setPlayback('running'))
       .catch((error) => {
         // start() rejects with ERR_BACKGROUND_NOT_CONFIGURED when the config
         // plugin is missing, so the UI must not assume it started.
-        setIsPlaying(false);
+        setPlayback('stopped');
         console.error(error);
       });
   };
 
+  // pause() and resume() are idempotent, so this stays correct even when the shade
+  // won the race and the state below is one transition behind.
+  const handlePauseResume = () => {
+    const next = playback === 'paused' ? resume() : pause();
+    next.then(() => setPlayback(playback === 'paused' ? 'running' : 'paused')).catch(
+      console.error,
+    );
+  };
+
   const handleStop = () => {
     stop();
-    setIsPlaying(false);
+    setPlayback('stopped');
   };
 
   const handleBpmChange = (delta: number) => {
     const next = Math.max(BPM_MIN, Math.min(BPM_MAX, bpm + delta));
     setBpm(next);
-    if (isPlaying) setEngineBpm(next).catch(console.error);
+    if (isLive) setEngineBpm(next).catch(console.error);
   };
 
   const handleSoundChange = (preset: SoundPreset) => {
@@ -131,7 +162,12 @@ export default function App() {
   };
 
   const beatLabel = beatPayload ? `Beat ${beatPayload.beat + 1} · ${beatPayload.accent}` : '—';
-  const statusText = isPlaying ? `♩ ${bpm} BPM · ${beatLabel}` : `${bpm} BPM`;
+  const statusText =
+    playback === 'running'
+      ? `♩ ${bpm} BPM · ${beatLabel}`
+      : playback === 'paused'
+        ? `⏸ ${bpm} BPM · paused`
+        : `${bpm} BPM`;
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -251,18 +287,26 @@ export default function App() {
         </View>
         <Text style={styles.patternHint}>Applies on the next Play</Text>
 
-        {/* Play / Stop */}
+        {/* Play / Pause / Stop */}
         <View style={styles.controlRow}>
           <TouchableOpacity
-            style={[styles.controlButton, styles.playButton, isPlaying && styles.disabled]}
+            style={[styles.controlButton, styles.playButton, isLive && styles.disabled]}
             onPress={handlePlay}
-            disabled={isPlaying}>
+            disabled={isLive}>
             <Text style={styles.controlButtonText}>Play</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.controlButton, styles.stopButton, !isPlaying && styles.disabled]}
+            style={[styles.controlButton, styles.pauseButton, !isLive && styles.disabled]}
+            onPress={handlePauseResume}
+            disabled={!isLive}>
+            <Text style={styles.controlButtonText}>
+              {playback === 'paused' ? 'Resume' : 'Pause'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.controlButton, styles.stopButton, !isLive && styles.disabled]}
             onPress={handleStop}
-            disabled={!isPlaying}>
+            disabled={!isLive}>
             <Text style={styles.controlButtonText}>Stop</Text>
           </TouchableOpacity>
         </View>
@@ -438,17 +482,20 @@ const styles = StyleSheet.create({
   },
   controlRow: {
     flexDirection: 'row',
-    gap: 16,
+    gap: 12,
   },
   controlButton: {
     paddingVertical: 14,
-    paddingHorizontal: 36,
+    paddingHorizontal: 22,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   playButton: {
     backgroundColor: '#16a34a',
+  },
+  pauseButton: {
+    backgroundColor: '#4a90d9',
   },
   stopButton: {
     backgroundColor: '#dc2626',
