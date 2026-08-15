@@ -155,6 +155,48 @@ import Testing
     }
 }
 
+/// The behaviour change in 2.0: an interruption no longer collapses into a stop.
+/// These are the rules stated as a table, so a regression shows up here rather than
+/// as a metronome that never comes back after a phone call.
+@Suite struct InterruptionPolicyTests {
+
+    @Test func anInterruptionPausesRatherThanStopping() {
+        #expect(
+            InterruptionPolicy.outcome(phase: .began, shouldResume: false, pausedByInterruption: false)
+            == .pause
+        )
+    }
+
+    @Test func aCleanlyEndedInterruptionResumes() {
+        #expect(
+            InterruptionPolicy.outcome(phase: .ended, shouldResume: true, pausedByInterruption: true)
+            == .resume
+        )
+    }
+
+    /// Without `.shouldResume` iOS is telling us not to — typically because the user
+    /// started another player after the call.
+    @Test func anEndedInterruptionWithoutShouldResumeStaysPaused() {
+        #expect(
+            InterruptionPolicy.outcome(phase: .ended, shouldResume: false, pausedByInterruption: true)
+            == .ignore
+        )
+    }
+
+    /// Otherwise a call taken during a deliberate pause would restart the metronome
+    /// in the user's pocket when it ended.
+    @Test(arguments: [true, false])
+    func anEndedInterruptionNeverUndoesAPauseTheUserAskedFor(shouldResume: Bool) {
+        #expect(
+            InterruptionPolicy.outcome(
+                phase: .ended,
+                shouldResume: shouldResume,
+                pausedByInterruption: false
+            ) == .ignore
+        )
+    }
+}
+
 @Suite struct BeatSchedulerTests {
 
     // MARK: - Interval accuracy
