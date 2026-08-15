@@ -1,7 +1,6 @@
 package net.guitar0.metronome
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -71,6 +70,7 @@ class BackgroundNotConfiguredException :
 class ExpoPrecisionMetronomeModule : Module() {
     private var engine: MetronomeEngine? = null
     private var androidContext: Context? = null
+    private var sessionListener: MetronomeSession.Listener? = null
 
     override fun definition() = ModuleDefinition {
         Name("ExpoPrecisionMetronome")
@@ -86,26 +86,36 @@ class ExpoPrecisionMetronomeModule : Module() {
             this@ExpoPrecisionMetronomeModule.androidContext = context
 
             val newEngine = MetronomeEngine(context) { eventName, payload ->
-                // Every stop path funnels through here — explicit, audio focus loss,
-                // native error, notification button — so the service is torn down once.
-                // onStop is posted to the main looper, so it can land after a fresh
-                // start() has already put the service back up; only tear down when
-                // playback really is over.
-                if (eventName == "onStop" && !MetronomeEngineHolder.isRunning) {
-                    stopBackgroundService()
+                // The engine reports only the stops it decided on itself — audio focus
+                // loss, headphones unplugged, a native stream error. Routing them
+                // through the session means every cause, including the notification
+                // button and JS, produces one transition and one event.
+                if (eventName == "onStop") {
+                    MetronomeSession.stop(payload["reason"] as? String)
+                } else {
+                    sendEvent(eventName, payload)
                 }
-                sendEvent(eventName, payload)
             }
-            MetronomeEngineHolder.attach(newEngine)
             engine = newEngine
+
+            val listener = MetronomeSession.Listener { old, new -> onSessionChange(old, new) }
+            sessionListener = listener
+            MetronomeSession.addListener(listener)
         }
 
         OnDestroy {
+            // Unsubscribed first: what follows is teardown, not a transition anyone is
+            // owed an event for.
+            sessionListener?.let { MetronomeSession.removeListener(it) }
+            sessionListener = null
             engine?.let {
                 it.stop(null)
                 it.destroy()
-                MetronomeEngineHolder.detach(it)
             }
+            // The session outlives the module, so it has to be told that the engine it
+            // describes is gone — otherwise a reload lands on a snapshot claiming
+            // playback that no engine is producing.
+            MetronomeSession.stop(null)
             stopBackgroundService()
             engine = null
             androidContext = null
@@ -120,36 +130,27 @@ class ExpoPrecisionMetronomeModule : Module() {
             }
 
             // MetronomeEngine.start() is a no-op on a live stream, so calling start()
-            // twice would otherwise record the new bpm/options here while playback kept
-            // the old ones — and leave the service running against options it no longer
-            // matches. Tear the stream down first so every start() means the same thing.
-            // Silent (`null`), because JS asked for a restart, not for a stop.
+            // twice would otherwise leave the session describing a tempo and a set of
+            // options that playback never picked up. Tear the stream down first so every
+            // start() means the same thing. Silent (`null`), because JS asked for a
+            // restart, not for a stop — and because the restart is one session
+            // transition, never a stop followed by a start.
             engine?.stop(null)
-
-            MetronomeEngineHolder.backgroundOptions = background
-            MetronomeEngineHolder.bpm = bpm
             engine?.start(bpm, options?.mixWithOthers ?: false)
 
-            if (background != null) {
-                startBackgroundService()
-            } else {
-                stopBackgroundService()
-            }
+            MetronomeSession.start(bpm, background)
         }
 
         AsyncFunction("stop") {
-            engine?.stop("explicit")
+            MetronomeSession.stop(STOP_REASON_EXPLICIT)
         }
 
         AsyncFunction("setBpm") { bpm: Double ->
             assertBpm(bpm)
-            MetronomeEngineHolder.bpm = bpm
             engine?.setBpm(bpm)
-            // Only the generated "{bpm} BPM" text tracks the tempo; a caller-supplied
-            // text stays as it is, so there is nothing to redraw.
-            if (MetronomeEngineHolder.backgroundOptions?.text == null) {
-                refreshNotification()
-            }
+            // The service redraws the notification off this transition, and only when
+            // the tempo is what it renders.
+            MetronomeSession.setBpm(bpm)
         }
 
         AsyncFunction("setSound") { preset: SoundPreset ->
@@ -158,6 +159,38 @@ class ExpoPrecisionMetronomeModule : Module() {
 
         AsyncFunction("setPattern") { pattern: List<BeatAccent> ->
             engine?.setPattern(MetronomeEngine.encodePattern(pattern))
+        }
+    }
+
+    /**
+     * The engine and the foreground service are both driven from here, off the snapshots
+     * of a single transition, so JS, the notification and an interruption all take the
+     * same path.
+     */
+    private fun onSessionChange(old: MetronomeState, new: MetronomeState) {
+        if (new.playback != old.playback && new.playback == Playback.Stopped) {
+            // Silent: the event for this transition is sent below, from the snapshot.
+            engine?.stop(null)
+            new.reason?.let { sendEvent("onStop", mapOf("reason" to it)) }
+        }
+        syncBackgroundService(old, new)
+    }
+
+    /**
+     * Every service command is issued from a listener callback, so they reach the main
+     * looper in transition order. That is what makes a stop decided just before a fresh
+     * `start()` harmless: the restart's own transition is queued behind it and puts the
+     * service back up, instead of the two racing on separate threads.
+     */
+    private fun syncBackgroundService(old: MetronomeState, new: MetronomeState) {
+        val wanted = new.playback != Playback.Stopped && new.background != null
+        val had = old.playback != Playback.Stopped && old.background != null
+        when {
+            // A restart with different options needs no command: the service is already
+            // up and redraws from the same transition.
+            wanted && !had -> startBackgroundService()
+
+            !wanted && had -> stopBackgroundService()
         }
     }
 
@@ -213,42 +246,16 @@ class ExpoPrecisionMetronomeModule : Module() {
         )
     }
 
-    /**
-     * POST_NOTIFICATIONS is declared by the config plugin in the consumer's manifest,
-     * never by this library — an opt-in feature must not push the permission onto apps
-     * that only ever play in the foreground. Lint only sees the library manifest, so it
-     * cannot know that; [canPostNotifications] is the real guard.
-     */
-    private fun canPostNotifications(context: Context): Boolean =
-        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-            hasPermission(context, Manifest.permission.POST_NOTIFICATIONS)
-
-    /**
-     * Redraws the ongoing notification in place instead of routing through the
-     * service. `startForegroundService()` per tempo change is an ActivityManager
-     * round-trip, and a BPM slider fires one of these per frame.
-     */
-    @SuppressLint("MissingPermission")
-    private fun refreshNotification() {
-        val context = androidContext ?: return
-        val options = MetronomeEngineHolder.backgroundOptions ?: return
-        // Without the permission the notification is hidden anyway, so the post would
-        // only be dropped by the system.
-        if (!canPostNotifications(context)) return
-
-        NotificationManagerCompat.from(context).notify(
-            NotificationFactory.NOTIFICATION_ID,
-            NotificationFactory.build(context, options, MetronomeEngineHolder.bpm)
-        )
-    }
-
     private fun stopBackgroundService() {
         val context = androidContext ?: return
-        MetronomeEngineHolder.backgroundOptions = null
         context.stopService(MetronomeService.intent(context))
         // Belt and braces: the service owns the notification and drops it on destroy,
-        // but stopService() is asynchronous and a refresh may have posted one while the
+        // but stopService() is asynchronous and a redraw may have posted one while the
         // service was still starting up.
         NotificationManagerCompat.from(context).cancel(NotificationFactory.NOTIFICATION_ID)
+    }
+
+    private companion object {
+        const val STOP_REASON_EXPLICIT = "explicit"
     }
 }
