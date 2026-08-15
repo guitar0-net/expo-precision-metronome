@@ -21,10 +21,14 @@ internal class MetronomeEngine(
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val mainHandler = Handler(Looper.getMainLooper())
     private val running = AtomicBoolean(false)
+    private val paused = AtomicBoolean(false)
 
     private var focusRequest: AudioFocusRequest? = null
     private var legacyFocusListener: AudioManager.OnAudioFocusChangeListener? = null
     private var noisyReceiver: BecomingNoisyReceiver? = null
+
+    /** Remembered from [start] so [resume] can ask for the focus type it had. */
+    private var mixWithOthers = false
 
     init {
         nativeHandle = nativeCreate()
@@ -37,9 +41,43 @@ internal class MetronomeEngine(
      */
     fun start(bpm: Double, mixWithOthers: Boolean = false): Boolean {
         if (!running.compareAndSet(false, true)) return false
+        this.mixWithOthers = mixWithOthers
+        paused.set(false)
         requestAudioFocus(mixWithOthers)
         registerNoisyReceiver()
         nativeStart(nativeHandle, bpm)
+        return true
+    }
+
+    /**
+     * Silences the stream instead of closing it, so [resume] re-enters with the
+     * latency and sample accuracy of a stream that never stopped.
+     *
+     * Focus is released and the noisy receiver unregistered: holding focus while
+     * producing nothing keeps a backing track ducked for no reason, which is exactly
+     * what `mixWithOthers` exists to avoid, and a receiver whose whole job is
+     * "stop when the sound would leak" has nothing to do while there is no sound.
+     *
+     * Returns whether this call was the one that paused.
+     */
+    fun pause(): Boolean {
+        if (!running.get()) return false
+        if (!paused.compareAndSet(false, true)) return false
+        // Silence first, so nothing is still being written after focus is handed back.
+        nativeSetPaused(nativeHandle, true)
+        unregisterNoisyReceiver()
+        releaseAudioFocus()
+        return true
+    }
+
+    /** Restarts the bar — the scheduler resets on the audio thread. */
+    fun resume(): Boolean {
+        if (!running.get()) return false
+        if (!paused.compareAndSet(true, false)) return false
+        // Focus first, for the mirror-image reason: no sound before we may make it.
+        requestAudioFocus(mixWithOthers)
+        registerNoisyReceiver()
+        nativeSetPaused(nativeHandle, false)
         return true
     }
 
@@ -49,6 +87,10 @@ internal class MetronomeEngine(
      */
     fun stop(reason: String?) {
         if (!running.compareAndSet(true, false)) return
+        // Pausing already released focus and the receiver, so both teardowns below are
+        // no-ops in that case — but the flag has to go, or the next start() would
+        // inherit a pause nobody asked for.
+        paused.set(false)
         nativeStop(nativeHandle)
         unregisterNoisyReceiver()
         releaseAudioFocus()
@@ -166,6 +208,7 @@ internal class MetronomeEngine(
     private external fun nativeDestroy(handle: Long)
     private external fun nativeStart(handle: Long, bpm: Double)
     private external fun nativeStop(handle: Long)
+    private external fun nativeSetPaused(handle: Long, paused: Boolean)
     private external fun nativeSetBpm(handle: Long, bpm: Double)
     private external fun nativeSetSound(handle: Long, presetIndex: Int)
     private external fun nativeSetPattern(handle: Long, encoded: Long)
