@@ -13,6 +13,10 @@ final class MetronomeEngine {
     private var sampleRate: Double = 44_100
     private var currentSample: Int64 = 0
     private var clickPhase: Int = -1
+    /// Audio-thread-only mirror of `isPaused`, so the callback can spot the moment it
+    /// resumes and restart the bar there — the scheduler must not be touched from the
+    /// JS thread.
+    private var wasPaused = false
     private var clickDurationSamples: Int = 0
     private var clickPreset: SoundPreset = .click
     // Accent params captured at click onset; used for multi-buffer continuation.
@@ -22,6 +26,7 @@ final class MetronomeEngine {
     // On ARM64 (all iOS devices), an aligned 8-byte load/store is a single LDR/STR —
     // hardware-atomic, no torn reads possible. No synchronisation primitive needed.
     private var currentBPM: Double = 120
+    private var isPaused: Bool = false
     private var currentPresetIndex: Int = 0
     // Pattern packed as: bits 32-36 = (length-1), bits 0-31 = 16×2-bit accent codes.
     // 0b00=strong, 0b01=normal, 0b10=muted. Default: ['strong','normal','normal','normal'].
@@ -51,8 +56,48 @@ final class MetronomeEngine {
         }
 
         currentBPM = bpm
+        isPaused = false
         try launchEngine(mixWithOthers: mixWithOthers)
         playbackState = .running
+    }
+
+    /// Silences the render callback and leaves everything else standing — the engine,
+    /// the source node and, deliberately, the audio session.
+    ///
+    /// Deactivating the session on pause would stop background audio output, so iOS
+    /// would suspend the app: `resume()` from JS becomes unreachable (JS is not
+    /// running, and iOS has no metronome notification), and the `.ended` interruption
+    /// notification never arrives, so auto-resume after a call would only work in the
+    /// foreground — the one case where it is least needed. The cost is that under
+    /// `mixWithOthers: false` the `.playback` category keeps silencing other audio
+    /// while paused, which is not the primary metronome scenario.
+    ///
+    /// Android is the mirror image and releases audio focus on pause. There is no
+    /// symmetry to find: the platforms bind "audible" and "alive" differently.
+    ///
+    /// Returns whether this call was the one that paused. `reason: nil` is silent.
+    @discardableResult
+    func pause(reason: String?) -> Bool {
+        guard playbackState == .running else { return false }
+        isPaused = true
+        playbackState = .paused
+        if let reason {
+            playbackHandler?(.paused, reason)
+        }
+        return true
+    }
+
+    /// Restarts the bar — the scheduler resets on the audio thread, so playback always
+    /// re-enters on the downbeat.
+    @discardableResult
+    func resume(reason: String?) -> Bool {
+        guard playbackState == .paused else { return false }
+        isPaused = false
+        playbackState = .running
+        if let reason {
+            playbackHandler?(.running, reason)
+        }
+        return true
     }
 
     func setBpm(bpm: Double) {
@@ -76,6 +121,8 @@ final class MetronomeEngine {
         sourceNode = nil
         engine = nil
         playbackState = .stopped
+        // Or the next start() would inherit a pause nobody asked for.
+        isPaused = false
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         if let reason {
             playbackHandler?(.stopped, reason)
@@ -119,6 +166,7 @@ final class MetronomeEngine {
         sampleRate = sr
         currentSample = 0
         clickPhase = -1
+        wasPaused = false
         scheduler.reset()
 
         guard let format = AVAudioFormat(standardFormatWithSampleRate: sr, channels: 1) else {
@@ -179,7 +227,25 @@ final class MetronomeEngine {
         let bpm = currentBPM
         let bufferStart = currentSample
 
+        // The in-flight click is allowed to finish into a pause: cutting it mid-way is
+        // a discontinuity the user hears as a pop, and no click outlives 250 ms.
         renderOngoingClick(into: buffer, frameCount: frameCount)
+
+        // Paused writes silence rather than tearing the engine down: rebuilding costs
+        // the sample accuracy this package exists for, and metronome pauses are short.
+        // The sample clock runs on, so beat timestamps stay on one timeline.
+        if isPaused {
+            wasPaused = true
+            currentSample += Int64(frameCount)
+            return noErr
+        }
+
+        // Resuming restarts the bar: pause is pressed by ear at an arbitrary moment, so
+        // a musician re-enters on "one".
+        if wasPaused {
+            wasPaused = false
+            scheduler.reset()
+        }
 
         if let (offset, beatNumber) = scheduler.nextBeat(
             frameCount: frameCount,

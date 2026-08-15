@@ -74,6 +74,17 @@ public class ExpoPrecisionMetronomeModule: Module {
             self.engine?.stop(reason: "explicit")
         }
 
+        // Idempotent, and deliberately not a toggle: with commands able to originate
+        // outside JS, a lost race has to stay harmless rather than invert into the
+        // opposite action. A call that changes nothing emits nothing.
+        AsyncFunction("pause") {
+            self.engine?.pause(reason: "explicit")
+        }
+
+        AsyncFunction("resume") {
+            self.engine?.resume(reason: "explicit")
+        }
+
         /// `notificationVisible` is always false: iOS has no metronome notification,
         /// see the MediaSession rejection in the pause/resume design notes.
         AsyncFunction("getState") { () -> [String: Any] in
