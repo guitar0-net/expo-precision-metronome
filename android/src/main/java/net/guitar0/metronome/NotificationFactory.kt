@@ -39,7 +39,7 @@ internal object NotificationFactory {
     fun build(context: Context, options: BackgroundOptions, bpm: Double): Notification {
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle(options.title)
-            .setContentText(options.text ?: defaultText(bpm))
+            .setContentText(contentText(options, bpm))
             .setSmallIcon(resolveIcon(context, options.icon))
             .setOngoing(true)
             .setSilent(true)
@@ -59,6 +59,14 @@ internal object NotificationFactory {
 
         return builder.build()
     }
+
+    /**
+     * The content line as it will be rendered. Exposed so the service can decide whether
+     * a state change is worth a redraw by comparing what the user would actually see,
+     * rather than the inputs behind it.
+     */
+    fun contentText(options: BackgroundOptions, bpm: Double): String =
+        options.text ?: defaultText(bpm)
 
     /** Falls back to the app icon; consumers should pass a monochrome drawable via `icon`. */
     private fun resolveIcon(context: Context, name: String?): Int {
