@@ -280,4 +280,35 @@ import Testing
         #expect(beat.beatNumber == 0, "beat counter should reset to 0 after reset()")
         #expect(beat.offset == 0, "after reset, first beat should fire immediately at any currentSample")
     }
+
+    /// Pause silences the render callback without stopping the engine, so the sample
+    /// clock runs on through it. Resume calls `reset()`, and what must not happen then
+    /// is a catch-up burst of the beats that were skipped.
+    @Test func resumingAfterASilentStretchKeepsThePlainInterval() throws {
+        let sr = 44_100.0
+        let scheduler = BeatScheduler()
+        let interval = Int64(sr * 60.0 / 120.0)
+
+        _ = scheduler.nextBeat(frameCount: 1, currentSample: 0, bpm: 120, sampleRate: sr)
+
+        // Paused: the callback never asks the scheduler anything, but time passes.
+        let resumedAt = interval * 400
+        scheduler.reset()
+
+        let downbeat = try #require(
+            scheduler.nextBeat(frameCount: 1, currentSample: resumedAt, bpm: 120, sampleRate: sr),
+            "resume must click on the first buffer"
+        )
+        #expect(downbeat.beatNumber == 0, "the bar starts over on resume")
+
+        #expect(
+            scheduler.nextBeat(frameCount: 1, currentSample: resumedAt + interval - 1, bpm: 120, sampleRate: sr) == nil,
+            "no catch-up beat for the time spent paused"
+        )
+        let second = try #require(
+            scheduler.nextBeat(frameCount: 1, currentSample: resumedAt + interval, bpm: 120, sampleRate: sr),
+            "second beat should land one plain interval after the resume downbeat"
+        )
+        #expect(second.beatNumber == 1)
+    }
 }
