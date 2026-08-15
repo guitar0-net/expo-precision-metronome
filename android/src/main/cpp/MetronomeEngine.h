@@ -21,6 +21,9 @@ public:
     // Updates accent pattern. Takes effect on the next beat onset.
     // Encoding: bits 32-36 = (length-1), bits 0-31 = 16×2-bit accent codes (0=strong,1=normal,2=muted).
     void setPattern(int64_t encoded);
+    // Silences the scheduler without touching the stream, so resume is immediate and
+    // still sample-accurate. Unpausing restarts the bar — see onAudioReady.
+    void setPaused(bool paused);
     // Idempotent.
     void stop();
 
@@ -62,5 +65,10 @@ private:
     SoundPreset clickPreset_  = SoundPreset::Click;
     ClickSynthesizer::AccentParams clickAccent_ = { 1.0f, 1.0, 1.0 };
     int clickPhase_ = -1; // -1 = no active click, >=0 = samples written so far
+    // Audio-thread-only mirror of paused_, so the callback can spot the moment it
+    // resumes and restart the bar there rather than from the JS thread, which must
+    // never touch scheduler state.
+    bool wasPaused_ = false;
     std::atomic<bool> running_{false};
+    std::atomic<bool> paused_{false};
 };

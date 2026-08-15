@@ -29,6 +29,12 @@ Java_net_guitar0_metronome_MetronomeEngine_nativeStop(
 }
 
 JNIEXPORT void JNICALL
+Java_net_guitar0_metronome_MetronomeEngine_nativeSetPaused(
+    JNIEnv* /*env*/, jobject /*thiz*/, jlong handle, jboolean paused) {
+    reinterpret_cast<MetronomeEngine*>(handle)->setPaused(paused == JNI_TRUE);
+}
+
+JNIEXPORT void JNICALL
 Java_net_guitar0_metronome_MetronomeEngine_nativeSetBpm(
     JNIEnv* /*env*/, jobject /*thiz*/, jlong handle, jdouble bpm) {
     reinterpret_cast<MetronomeEngine*>(handle)->setBpm(bpm);

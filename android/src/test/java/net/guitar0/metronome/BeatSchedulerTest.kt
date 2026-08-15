@@ -132,4 +132,62 @@ class BeatSchedulerTest {
 
         assertTrue("Should have observed multiple beats", lastBeat > 0)
     }
+
+    /**
+     * Pause silences the callback without closing the stream, so the sample clock runs
+     * on through it. Resume calls reset(), which is what makes playback re-enter on the
+     * downbeat: a musician pauses by ear at an arbitrary moment and comes back on "one".
+     */
+    @Test
+    fun `resuming after a silent stretch fires the downbeat immediately`() {
+        val scheduler = BeatScheduler()
+        val frames = 256
+        var currentSample = 0L
+
+        // Play until a few beats have gone by.
+        var beatsBefore = 0
+        while (beatsBefore < 3) {
+            if (scheduler.nextBeat(frames, currentSample, 120.0, sampleRate).offset >= 0) {
+                beatsBefore++
+            }
+            currentSample += frames
+        }
+
+        // Paused: the callback writes silence and never asks the scheduler anything,
+        // but the sample clock keeps advancing.
+        currentSample += frames * 400L
+
+        scheduler.reset()
+        val resumed = scheduler.nextBeat(frames, currentSample, 120.0, sampleRate)
+
+        assertEquals("Resume must click on the first buffer, not part-way in", 0, resumed.offset)
+        assertEquals("The bar starts over on resume", 0, resumed.beatNumber)
+    }
+
+    /** The interval after a resume must be the plain tempo, not a catch-up burst. */
+    @Test
+    fun `resuming does not replay the beats missed while paused`() {
+        val scheduler = BeatScheduler()
+        val frames = 256
+        var currentSample = frames * 1000L
+
+        scheduler.reset()
+        assertEquals(0, scheduler.nextBeat(frames, currentSample, 120.0, sampleRate).offset)
+        val firstBeatSample = currentSample
+        currentSample += frames
+
+        var secondBeatSample = -1L
+        while (secondBeatSample < 0) {
+            val result = scheduler.nextBeat(frames, currentSample, 120.0, sampleRate)
+            if (result.offset >= 0) secondBeatSample = currentSample + result.offset
+            currentSample += frames
+        }
+
+        val interval = (sampleRate * 60.0 / 120.0).toLong()
+        assertEquals(
+            "Second beat should land one plain interval later",
+            interval,
+            secondBeatSample - firstBeatSample
+        )
+    }
 }

@@ -58,6 +58,10 @@ void MetronomeEngine::setPattern(int64_t encoded) {
     currentPattern_.store(encoded, std::memory_order_relaxed);
 }
 
+void MetronomeEngine::setPaused(bool paused) {
+    paused_.store(paused, std::memory_order_relaxed);
+}
+
 BeatAccent MetronomeEngine::decodeAccent(int64_t encoded, int beatNumber) {
     int length = static_cast<int>((encoded >> 32) & 0x1F) + 1;
     int beatIndex = beatNumber % length;
@@ -89,6 +93,8 @@ void MetronomeEngine::openStream() {
     sampleRate_ = static_cast<double>(stream_->getSampleRate());
     currentSample_ = 0;
     clickPhase_ = -1;
+    paused_.store(false, std::memory_order_relaxed);
+    wasPaused_ = false;
     scheduler_.reset();
 
     result = stream_->start();
@@ -121,13 +127,32 @@ oboe::DataCallbackResult MetronomeEngine::onAudioReady(
     const double bpm = currentBpm_.load(std::memory_order_relaxed);
     const int64_t bufferStart = currentSample_;
 
-    // Continue a click that started in a previous buffer.
+    // Continue a click that started in a previous buffer — including into a pause,
+    // because cutting a click mid-flight is a discontinuity the user hears as a pop,
+    // and no click outlives 250 ms anyway.
     if (clickPhase_ >= 0) {
         int remaining = clickDurationSamples_ - clickPhase_;
         int toWrite = std::min(remaining, static_cast<int>(numFrames));
         ClickSynthesizer::render(buffer, 0, clickPhase_, toWrite, sampleRate_, clickPreset_, clickAccent_);
         clickPhase_ += toWrite;
         if (clickPhase_ >= clickDurationSamples_) clickPhase_ = -1;
+    }
+
+    // Paused writes silence rather than closing the stream: reopening costs the
+    // sample accuracy this package exists for, and metronome pauses are short.
+    // The sample clock keeps advancing so beat timestamps stay on one timeline.
+    if (paused_.load(std::memory_order_relaxed)) {
+        wasPaused_ = true;
+        currentSample_ += numFrames;
+        return oboe::DataCallbackResult::Continue;
+    }
+
+    // Resuming restarts the bar: pause is pressed by ear at an arbitrary moment, so
+    // a musician re-enters on "one". Done here, on the audio thread, because the
+    // scheduler is audio-thread-only state.
+    if (wasPaused_) {
+        wasPaused_ = false;
+        scheduler_.reset();
     }
 
     auto beat = scheduler_.nextBeat(static_cast<int>(numFrames), bufferStart, bpm, sampleRate_);

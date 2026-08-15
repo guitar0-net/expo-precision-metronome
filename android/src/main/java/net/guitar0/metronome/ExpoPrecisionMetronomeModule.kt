@@ -146,6 +146,18 @@ class ExpoPrecisionMetronomeModule : Module() {
             MetronomeSession.stop(REASON_EXPLICIT)
         }
 
+        // Idempotent, and deliberately not a toggle: the notification and the app's own
+        // UI are independent command sources, so a lost race has to stay harmless
+        // rather than invert into the opposite action. The session decides whether
+        // anything happened at all.
+        AsyncFunction("pause") {
+            MetronomeSession.pause(REASON_EXPLICIT)
+        }
+
+        AsyncFunction("resume") {
+            MetronomeSession.resume(REASON_EXPLICIT)
+        }
+
         // The snapshot is already the single source of truth, so this is a read of it
         // rather than a poll of the engine — which is what makes it safe to call from a
         // component that mounted after the transition it missed.
@@ -182,9 +194,15 @@ class ExpoPrecisionMetronomeModule : Module() {
      */
     private fun onSessionChange(old: MetronomeState, new: MetronomeState) {
         if (new.playback != old.playback) {
-            if (new.playback == Playback.Stopped) {
+            when (new.playback) {
                 // Silent: the event for this transition is sent below, from the snapshot.
-                engine?.stop(null)
+                Playback.Stopped -> engine?.stop(null)
+
+                Playback.Paused -> engine?.pause()
+
+                // A restart out of Paused already rebuilt the engine unpaused in the
+                // start() body, so resume() finds nothing to do and says so.
+                Playback.Running -> engine?.resume()
             }
             // A null reason means JS either asked for this itself or is no longer there
             // to hear about it — a restart, or teardown.
