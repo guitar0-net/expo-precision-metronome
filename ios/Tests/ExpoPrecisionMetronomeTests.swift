@@ -155,6 +155,60 @@ import Testing
     }
 }
 
+@Suite struct BarRestartSignalTests {
+
+    /// The regression this type exists for. When the restart was recorded by the
+    /// render callback noticing it had been paused, an interruption never recorded
+    /// one at all — iOS stops the `AVAudioEngine` on `.began`, so the callback stops
+    /// with it — and auto-resuming after a phone call re-entered on an arbitrary beat
+    /// instead of the downbeat. No buffer renders between the pause and the resume
+    /// here, which is exactly that case.
+    @Test func aPauseArmsARestartEvenWhenNoBufferRendersDuringIt() {
+        let signal = BarRestartSignal()
+
+        signal.raise()
+
+        #expect(signal.consume(), "the first audible buffer after a pause starts a new bar")
+    }
+
+    @Test func onlyOneBufferRestartsPerPause() {
+        let signal = BarRestartSignal()
+        signal.raise()
+
+        #expect(signal.consume())
+        #expect(signal.consume() == false, "the bar restarts once, not on every buffer")
+    }
+
+    @Test func aStreamThatWasNeverPausedNeverRestarts() {
+        let signal = BarRestartSignal()
+
+        #expect(signal.consume() == false)
+    }
+
+    /// A fresh stream begins on the downbeat by construction, so a restart left over
+    /// from the previous one would reset the scheduler a second time.
+    @Test func clearDisarmsAPendingRestart() {
+        let signal = BarRestartSignal()
+        signal.raise()
+
+        signal.clear()
+
+        #expect(signal.consume() == false)
+    }
+
+    /// Pause, resume and pause again before the audio thread gets a buffer in: the
+    /// bar still owes exactly one restart, not two.
+    @Test func pausesThatStackWhileTheStreamIsSilentRestartOnce() {
+        let signal = BarRestartSignal()
+
+        signal.raise()
+        signal.raise()
+
+        #expect(signal.consume())
+        #expect(signal.consume() == false)
+    }
+}
+
 /// The behaviour change in 2.0: an interruption no longer collapses into a stop.
 /// These are the rules stated as a table, so a regression shows up here rather than
 /// as a metronome that never comes back after a phone call.

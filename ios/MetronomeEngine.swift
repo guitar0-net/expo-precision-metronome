@@ -13,10 +13,10 @@ final class MetronomeEngine {
     private var sampleRate: Double = 44_100
     private var currentSample: Int64 = 0
     private var clickPhase: Int = -1
-    /// Audio-thread-only mirror of `isPaused`, so the callback can spot the moment it
-    /// resumes and restart the bar there — the scheduler must not be touched from the
-    /// JS thread.
-    private var wasPaused = false
+    /// Set when playback is paused, consumed by the render callback on the first
+    /// audible buffer after it. It is what makes resume re-enter on the downbeat, and
+    /// it lives outside the callback because an interruption stops the callback.
+    private let barRestart = BarRestartSignal()
     private var clickDurationSamples: Int = 0
     private var clickPreset: SoundPreset = .click
     // Accent params captured at click onset; used for multi-buffer continuation.
@@ -89,6 +89,10 @@ final class MetronomeEngine {
     func pause(reason: String?) -> Bool {
         guard playbackState == .running else { return false }
         isPaused = true
+        // Armed here rather than in the render callback: an interruption stops the
+        // engine, so the callback would never run to arm it and the auto-resume after
+        // a call would come back mid-bar.
+        barRestart.raise()
         playbackState = .paused
         if let reason {
             playbackHandler?(.paused, reason)
@@ -192,7 +196,7 @@ final class MetronomeEngine {
         sampleRate = sr
         currentSample = 0
         clickPhase = -1
-        wasPaused = false
+        barRestart.clear()
         scheduler.reset()
 
         guard let format = AVAudioFormat(standardFormatWithSampleRate: sr, channels: 1) else {
@@ -261,15 +265,14 @@ final class MetronomeEngine {
         // the sample accuracy this package exists for, and metronome pauses are short.
         // The sample clock runs on, so beat timestamps stay on one timeline.
         if isPaused {
-            wasPaused = true
             currentSample += Int64(frameCount)
             return noErr
         }
 
         // Resuming restarts the bar: pause is pressed by ear at an arbitrary moment, so
-        // a musician re-enters on "one".
-        if wasPaused {
-            wasPaused = false
+        // a musician re-enters on "one". True on the first audible buffer after any
+        // pause, including one during which this callback was not running at all.
+        if barRestart.consume() {
             scheduler.reset()
         }
 
