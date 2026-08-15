@@ -1,9 +1,9 @@
 import AVFoundation
 
 final class MetronomeEngine {
-    // All three handlers are dispatched on the main thread.
+    // Both handlers are dispatched on the main thread.
     var beatHandler: ((_ beat: Int, _ timestamp: Double, _ accent: String) -> Void)?
-    var stopHandler: ((_ reason: String) -> Void)?
+    var playbackHandler: ((_ state: PlaybackState, _ reason: String) -> Void)?
 
     private var engine: AVAudioEngine?
     private var sourceNode: AVAudioSourceNode?
@@ -31,6 +31,11 @@ final class MetronomeEngine {
 
     var isRunning: Bool { engine?.isRunning == true }
 
+    /// The state JS is told about, and the one `getState()` reports.
+    private(set) var playbackState: PlaybackState = .stopped
+
+    var bpm: Double { currentBPM }
+
     // MARK: - Public API
 
     /// `mixWithOthers: true` lets backing tracks from other apps keep playing —
@@ -47,6 +52,7 @@ final class MetronomeEngine {
 
         currentBPM = bpm
         try launchEngine(mixWithOthers: mixWithOthers)
+        playbackState = .running
     }
 
     func setBpm(bpm: Double) {
@@ -61,16 +67,18 @@ final class MetronomeEngine {
         currentPatternEncoded = MetronomeEngine.encode(pattern)
     }
 
-    /// `reason: nil` suppresses the onStop event — used by OnDestroy where JS is gone.
+    /// `reason: nil` transitions silently — used by a restart, and by OnDestroy where
+    /// JS is gone.
     func stop(reason: String?) {
         guard let eng = engine else { return }
         removeInterruptionObserver()
         eng.stop()
         sourceNode = nil
         engine = nil
+        playbackState = .stopped
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         if let reason {
-            stopHandler?(reason)
+            playbackHandler?(.stopped, reason)
         }
     }
 

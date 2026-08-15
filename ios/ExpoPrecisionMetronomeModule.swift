@@ -41,15 +41,15 @@ public class ExpoPrecisionMetronomeModule: Module {
     public func definition() -> ModuleDefinition {
         Name("ExpoPrecisionMetronome")
 
-        Events("onBeat", "onStop")
+        Events("onBeat", "onPlaybackChange")
 
         OnCreate {
             let eng = MetronomeEngine()
             eng.beatHandler = { [weak self] beat, timestamp, accent in
                 self?.sendEvent("onBeat", ["beat": beat, "timestamp": timestamp, "accent": accent])
             }
-            eng.stopHandler = { [weak self] reason in
-                self?.sendEvent("onStop", ["reason": reason])
+            eng.playbackHandler = { [weak self] state, reason in
+                self?.sendEvent("onPlaybackChange", ["state": state.rawValue, "reason": reason])
             }
             self.engine = eng
         }
@@ -72,6 +72,16 @@ public class ExpoPrecisionMetronomeModule: Module {
 
         AsyncFunction("stop") {
             self.engine?.stop(reason: "explicit")
+        }
+
+        /// `notificationVisible` is always false: iOS has no metronome notification,
+        /// see the MediaSession rejection in the pause/resume design notes.
+        AsyncFunction("getState") { () -> [String: Any] in
+            [
+                "state": (self.engine?.playbackState ?? .stopped).rawValue,
+                "bpm": self.engine?.bpm ?? 0,
+                "notificationVisible": false
+            ]
         }
 
         AsyncFunction("setBpm") { (bpm: Double) in

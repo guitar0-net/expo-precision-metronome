@@ -6,11 +6,21 @@ import {
   BeatAccent,
   BPM_MAX,
   BPM_MIN,
+  ExpoPrecisionMetronomeModuleEvents,
   SOUND_PRESETS,
   SoundPreset,
 } from "../ExpoPrecisionMetronome.types";
 import ExpoPrecisionMetronomeModule from "../ExpoPrecisionMetronomeModule";
-import { setBpm, setPattern, setSound, start, stop } from "../index";
+import {
+  getState,
+  pause,
+  resume,
+  setBpm,
+  setPattern,
+  setSound,
+  start,
+  stop,
+} from "../index";
 
 const mod = jest.mocked(ExpoPrecisionMetronomeModule);
 
@@ -67,6 +77,8 @@ describe("start() options", () => {
       title: "Practice",
       text: "4/4",
       color: "#f59e0b",
+      pauseLabel: "Hold",
+      resumeLabel: "Carry on",
       showStopButton: false,
       lockscreenVisibility: "private" as const,
     };
@@ -81,6 +93,8 @@ describe("start() options", () => {
     ["text", { text: {} }],
     ["icon", { icon: false }],
     ["stopLabel", { stopLabel: null }],
+    ["pauseLabel", { pauseLabel: 3 }],
+    ["resumeLabel", { resumeLabel: [] }],
     ["channelName", { channelName: 7 }],
     ["showStopButton", { showStopButton: "yes" }],
     ["color", { color: "orange" }],
@@ -124,6 +138,59 @@ describe("stop()", () => {
     await stop();
     await stop();
     expect(mod.stop).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("pause() and resume()", () => {
+  test("delegate to the native module", async () => {
+    await pause();
+    await resume();
+    expect(mod.pause).toHaveBeenCalledTimes(1);
+    expect(mod.resume).toHaveBeenCalledTimes(1);
+  });
+
+  // The notification and the app's own UI are independent command sources, so a
+  // repeated command has to be harmless rather than an error.
+  test("are idempotent from the JS side — no state is tracked here", async () => {
+    await pause();
+    await pause();
+    await resume();
+    await resume();
+    expect(mod.pause).toHaveBeenCalledTimes(2);
+    expect(mod.resume).toHaveBeenCalledTimes(2);
+  });
+
+  test("take no arguments, so neither can be turned into a toggle by a caller", () => {
+    expect(pause.length).toBe(0);
+    expect(resume.length).toBe(0);
+  });
+});
+
+describe("getState()", () => {
+  test("returns the native snapshot unchanged", async () => {
+    const snapshot = {
+      state: "paused" as const,
+      bpm: 132,
+      notificationVisible: true,
+    };
+    mod.getState.mockResolvedValue(snapshot);
+
+    await expect(getState()).resolves.toEqual(snapshot);
+    expect(mod.getState).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("the event contract", () => {
+  // onStop is removed in 2.0, not deprecated: one event carrying `state` cannot be
+  // folded into a desynchronised UI the way three independent streams can. The
+  // mapped type is what enforces it — the compiler rejects a missing or extra key,
+  // so `tsc --noEmit` fails if onStop ever comes back.
+  test("is exactly onBeat and onPlaybackChange", () => {
+    const events: { [K in keyof ExpoPrecisionMetronomeModuleEvents]: true } = {
+      onBeat: true,
+      onPlaybackChange: true,
+    };
+    expect(Object.keys(events).sort()).toEqual(["onBeat", "onPlaybackChange"]);
   });
 });
 

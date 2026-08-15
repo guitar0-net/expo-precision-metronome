@@ -9,6 +9,7 @@ import {
 import type {
   BackgroundOptions,
   BeatAccent,
+  MetronomeState,
   NativeStartOptions,
   SoundPreset,
   StartOptions,
@@ -24,6 +25,8 @@ const BACKGROUND_STRING_FIELDS = [
   "text",
   "icon",
   "stopLabel",
+  "pauseLabel",
+  "resumeLabel",
   "channelName",
 ] as const;
 
@@ -110,9 +113,9 @@ function toNativeOptions(options: StartOptions): NativeStartOptions {
 /**
  * Starts the metronome at `bpm`.
  *
- * Restarts the engine when it is already running, so the new tempo and options
- * always take effect. The restart emits no `onStop` — use `setBpm()` to change
- * tempo without the audible gap.
+ * Restarts the engine when it is already running or paused, so the new tempo and
+ * options always take effect. The restart emits no `onPlaybackChange` — use
+ * `setBpm()` to change tempo without the audible gap.
  */
 export async function start(bpm: number, options?: StartOptions): Promise<void> {
   assertBpm(bpm);
@@ -127,6 +130,42 @@ export async function start(bpm: number, options?: StartOptions): Promise<void> 
 
 export function stop(): Promise<void> {
   return ExpoPrecisionMetronomeModule.stop();
+}
+
+/**
+ * Silences the metronome while keeping the audio engine alive, so `resume()` is
+ * immediate and sample-accurate.
+ *
+ * Idempotent: a no-op unless playback is running, and a no-op emits no
+ * `onPlaybackChange`. The notification and the app's own UI are independent
+ * command sources, so a lost race must stay harmless — that is why this is not a
+ * toggle.
+ */
+export function pause(): Promise<void> {
+  return ExpoPrecisionMetronomeModule.pause();
+}
+
+/**
+ * Resumes a paused metronome on the downbeat — the beat counter resets, because
+ * pause is pressed by ear at an arbitrary moment and a musician re-enters on "one".
+ *
+ * Idempotent: a no-op unless playback is paused. In particular it does not throw
+ * when playback has already stopped.
+ */
+export function resume(): Promise<void> {
+  return ExpoPrecisionMetronomeModule.resume();
+}
+
+/**
+ * Reads the current playback state.
+ *
+ * `onPlaybackChange` covers transitions, not a listener that was not mounted for
+ * one: with playback controllable from the notification, an app that remounted
+ * while backgrounded has no other way to find out what happened. Call it on mount
+ * to reconcile.
+ */
+export function getState(): Promise<MetronomeState> {
+  return ExpoPrecisionMetronomeModule.getState();
 }
 
 export async function setBpm(bpm: number): Promise<void> {

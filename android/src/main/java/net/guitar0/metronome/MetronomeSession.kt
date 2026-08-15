@@ -10,10 +10,13 @@ import java.util.concurrent.atomic.AtomicReference
  * Playback lifecycle. `Paused` keeps the audio engine alive and only silences the
  * scheduler; `Stopped` is the one state in which nothing is allocated.
  */
-internal enum class Playback {
-    Running,
-    Paused,
-    Stopped
+internal enum class Playback(
+    /** The wire value of `PlaybackState` in TypeScript; the two must not drift apart. */
+    val jsName: String
+) {
+    Running("running"),
+    Paused("paused"),
+    Stopped("stopped")
 }
 
 /**
