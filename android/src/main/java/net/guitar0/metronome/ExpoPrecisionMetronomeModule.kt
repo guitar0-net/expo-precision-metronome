@@ -86,15 +86,18 @@ class ExpoPrecisionMetronomeModule : Module() {
             this@ExpoPrecisionMetronomeModule.androidContext = context
 
             val newEngine = MetronomeEngine(context) { eventName, payload ->
-                // "onStop" here is the engine's own signal, not a JS event: it reports
-                // only the stops it decided on itself — audio focus loss, headphones
-                // unplugged, a native stream error. Routing them through the session
-                // means every cause, including the notification button and JS, produces
-                // one transition and one onPlaybackChange.
-                if (eventName == "onStop") {
-                    MetronomeSession.stop(payload["reason"] as? String)
-                } else {
-                    sendEvent(eventName, payload)
+                // "onStop", "onPause" and "onResume" here are the engine's own signals,
+                // not JS events: it reports what the system did to it — focus lost to a
+                // call and handed back, headphones unplugged, a native stream error.
+                // Routing them through the session means every cause, including the
+                // notification button and JS, produces one transition and one
+                // onPlaybackChange.
+                val reason = payload["reason"] as? String
+                when (eventName) {
+                    "onStop" -> MetronomeSession.stop(reason)
+                    "onPause" -> MetronomeSession.pause(reason)
+                    "onResume" -> MetronomeSession.resume(reason)
+                    else -> sendEvent(eventName, payload)
                 }
             }
             engine = newEngine

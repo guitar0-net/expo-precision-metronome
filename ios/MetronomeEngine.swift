@@ -27,6 +27,9 @@ final class MetronomeEngine {
     // hardware-atomic, no torn reads possible. No synchronisation primitive needed.
     private var currentBPM: Double = 120
     private var isPaused: Bool = false
+    /// Whether the current pause came from an `AVAudioSession` interruption, and is
+    /// therefore the only one `.ended` may undo.
+    private var pausedByInterruption = false
     private var currentPresetIndex: Int = 0
     // Pattern packed as: bits 32-36 = (length-1), bits 0-31 = 16×2-bit accent codes.
     // 0b00=strong, 0b01=normal, 0b10=muted. Default: ['strong','normal','normal','normal'].
@@ -46,17 +49,23 @@ final class MetronomeEngine {
     /// `mixWithOthers: true` lets backing tracks from other apps keep playing —
     /// the common case for a metronome.
     ///
-    /// Calling this on a running engine restarts it. The session category is only
+    /// Calling this on a live engine restarts it. The session category is only
     /// applied when the session is activated, so without the restart a second
     /// `start()` would silently keep the previous call's `mixWithOthers`.
+    ///
+    /// The test is `playbackState`, not `isRunning`: an interruption stops the
+    /// `AVAudioEngine` under us while the session stays paused, and tearing the old
+    /// one down is what keeps `launchEngine` from stacking a second interruption
+    /// observer on top of the first.
     func start(bpm: Double, mixWithOthers: Bool = false) throws {
-        if isRunning {
+        if playbackState != .stopped {
             // Silent: JS asked for a restart, not for a stop.
             stop(reason: nil)
         }
 
         currentBPM = bpm
         isPaused = false
+        pausedByInterruption = false
         try launchEngine(mixWithOthers: mixWithOthers)
         playbackState = .running
     }
@@ -92,7 +101,23 @@ final class MetronomeEngine {
     @discardableResult
     func resume(reason: String?) -> Bool {
         guard playbackState == .paused else { return false }
+
+        // A system interruption deactivates the session and stops the engine under us,
+        // so both have to be standing again before the callback is unmuted. Both are
+        // no-ops when the pause was the user's own.
+        try? AVAudioSession.sharedInstance().setActive(true)
+        if let eng = engine, !eng.isRunning {
+            do {
+                try eng.start()
+            } catch {
+                // Report the truth rather than claim playback that produces nothing.
+                stop(reason: reason)
+                return false
+            }
+        }
+
         isPaused = false
+        pausedByInterruption = false
         playbackState = .running
         if let reason {
             playbackHandler?(.running, reason)
@@ -123,6 +148,7 @@ final class MetronomeEngine {
         playbackState = .stopped
         // Or the next start() would inherit a pause nobody asked for.
         isPaused = false
+        pausedByInterruption = false
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         if let reason {
             playbackHandler?(.stopped, reason)
@@ -306,11 +332,41 @@ final class MetronomeEngine {
         guard
             let info = notification.userInfo,
             let typeValue = info[AVAudioSessionInterruptionTypeKey] as? UInt,
-            let type = AVAudioSession.InterruptionType(rawValue: typeValue),
-            type == .began
+            let type = AVAudioSession.InterruptionType(rawValue: typeValue)
         else { return }
 
-        stop(reason: "interruption")
+        let phase: InterruptionPhase
+        switch type {
+        case .began: phase = .began
+        case .ended: phase = .ended
+        @unknown default: return
+        }
+
+        let rawOptions = info[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
+        let options = AVAudioSession.InterruptionOptions(rawValue: rawOptions)
+
+        switch InterruptionPolicy.outcome(
+            phase: phase,
+            shouldResume: options.contains(.shouldResume),
+            pausedByInterruption: pausedByInterruption
+        ) {
+        case .pause:
+            // Recorded only when this call was the one that paused, so an interruption
+            // arriving during a pause the user asked for cannot license an auto-resume.
+            if pause(reason: "interruption") {
+                pausedByInterruption = true
+            }
+
+        case .resume:
+            resume(reason: "interruption")
+
+        case .ignore:
+            // Staying paused is a real outcome, not a dropped event: resuming is still
+            // one tap away in the app.
+            if phase == .ended {
+                pausedByInterruption = false
+            }
+        }
     }
 
     deinit {

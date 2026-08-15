@@ -23,6 +23,14 @@ internal class MetronomeEngine(
     private val running = AtomicBoolean(false)
     private val paused = AtomicBoolean(false)
 
+    /**
+     * Set when the system took focus transiently — an incoming call. It is the only
+     * pause `AUDIOFOCUS_GAIN` may undo, and the only one that must leave the focus
+     * request standing: abandoning it forfeits the very callback that says the call
+     * ended, and playback would sit paused forever.
+     */
+    private val pausedByTransientLoss = AtomicBoolean(false)
+
     private var focusRequest: AudioFocusRequest? = null
     private var legacyFocusListener: AudioManager.OnAudioFocusChangeListener? = null
     private var noisyReceiver: BecomingNoisyReceiver? = null
@@ -66,7 +74,9 @@ internal class MetronomeEngine(
         // Silence first, so nothing is still being written after focus is handed back.
         nativeSetPaused(nativeHandle, true)
         unregisterNoisyReceiver()
-        releaseAudioFocus()
+        if (!pausedByTransientLoss.get()) {
+            releaseAudioFocus()
+        }
         return true
     }
 
@@ -74,8 +84,12 @@ internal class MetronomeEngine(
     fun resume(): Boolean {
         if (!running.get()) return false
         if (!paused.compareAndSet(true, false)) return false
+        pausedByTransientLoss.set(false)
         // Focus first, for the mirror-image reason: no sound before we may make it.
-        requestAudioFocus(mixWithOthers)
+        // Already held when the system is handing it back after a call.
+        if (!focusHeld) {
+            requestAudioFocus(mixWithOthers)
+        }
         registerNoisyReceiver()
         nativeSetPaused(nativeHandle, false)
         return true
@@ -91,12 +105,22 @@ internal class MetronomeEngine(
         // no-ops in that case — but the flag has to go, or the next start() would
         // inherit a pause nobody asked for.
         paused.set(false)
+        pausedByTransientLoss.set(false)
         nativeStop(nativeHandle)
         unregisterNoisyReceiver()
         releaseAudioFocus()
         if (reason != null) {
-            mainHandler.post { onEvent("onStop", mapOf("reason" to reason)) }
+            report("onStop", reason)
         }
+    }
+
+    /**
+     * The engine never mutates playback state itself — it reports the cause and the
+     * module turns that into one session transition, so an interruption, the
+     * notification and JS all take the same path.
+     */
+    private fun report(signal: String, reason: String) {
+        mainHandler.post { onEvent(signal, mapOf("reason" to reason)) }
     }
 
     fun setBpm(bpm: Double) {
@@ -141,7 +165,16 @@ internal class MetronomeEngine(
     /**
      * `mixWithOthers` asks for MAY_DUCK focus instead of exclusive gain: a backing
      * track in another app keeps playing, just quieter. Focus is still requested
-     * either way, so a phone call still stops the metronome.
+     * either way, so a phone call still interrupts the metronome.
+     *
+     * The two kinds of loss are answered differently, following the platform
+     * convention rather than collapsing both into a stop:
+     *
+     * - `LOSS_TRANSIENT` is a call. Pause, keep the focus request, and come back on
+     *   `GAIN` — the metronome the user was practising with is still the thing they
+     *   were doing.
+     * - `LOSS` is another app taking over for good. Stop; there is nothing to come
+     *   back from, and no `GAIN` will arrive.
      */
     private fun requestAudioFocus(mixWithOthers: Boolean) {
         val gain = if (mixWithOthers) {
@@ -151,10 +184,19 @@ internal class MetronomeEngine(
         }
 
         val listener = AudioManager.OnAudioFocusChangeListener { change ->
-            if (change == AudioManager.AUDIOFOCUS_LOSS ||
-                change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT
-            ) {
-                stop("interruption")
+            when (AudioFocusPolicy.outcome(change, paused.get(), pausedByTransientLoss.get())) {
+                FocusOutcome.Stop -> stop(REASON_INTERRUPTION)
+
+                // Recorded before reporting, because pause() reads it to decide whether
+                // the focus request may be abandoned.
+                FocusOutcome.Pause -> {
+                    pausedByTransientLoss.set(true)
+                    report("onPause", REASON_INTERRUPTION)
+                }
+
+                FocusOutcome.Resume -> report("onResume", REASON_INTERRUPTION)
+
+                FocusOutcome.Ignore -> Unit
             }
         }
 
@@ -177,8 +219,13 @@ internal class MetronomeEngine(
         }
     }
 
+    /**
+     * Unplugging headphones pauses and is never auto-resumed: the user pulled the
+     * plug, so the silence is what they asked for. Coming back is a deliberate act,
+     * from the notification or from the app.
+     */
     private fun registerNoisyReceiver() {
-        val receiver = BecomingNoisyReceiver { stop("interruption") }
+        val receiver = BecomingNoisyReceiver { report("onPause", REASON_INTERRUPTION) }
         ContextCompat.registerReceiver(
             appContext,
             receiver,
@@ -192,6 +239,10 @@ internal class MetronomeEngine(
         noisyReceiver?.let { appContext.unregisterReceiver(it) }
         noisyReceiver = null
     }
+
+    /** Whether a focus request is outstanding, whatever the API level put it in. */
+    private val focusHeld: Boolean
+        get() = focusRequest != null || legacyFocusListener != null
 
     private fun releaseAudioFocus() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -214,6 +265,8 @@ internal class MetronomeEngine(
     private external fun nativeSetPattern(handle: Long, encoded: Long)
 
     companion object {
+        private const val REASON_INTERRUPTION = "interruption"
+
         // Encoding: bits 32-36 = (length-1), bits 0-31 = 16×2-bit accent codes.
         // 0=strong, 1=normal, 2=muted.
         fun encodePattern(pattern: List<BeatAccent>): Long {
