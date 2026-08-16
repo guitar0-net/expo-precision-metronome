@@ -19,7 +19,9 @@ SPDX-License-Identifier: MIT
 
 - Sample-accurate beat scheduling via AVAudioEngine (iOS) and [Oboe](https://github.com/google/oboe) (Android)
 - `onBeat` event with beat index, high-resolution timestamp, and accent level
-- `onStop` event distinguishing explicit stop from audio interruption (phone call, alarm, etc.)
+- `pause()` / `resume()` that keep the audio engine alive, so resuming is immediate and sample-accurate
+- `onPlaybackChange` event carrying both the new state and why it changed — your own call, the notification, or the OS
+- Android notification with **Pause ↔ Resume** and **Stop**, so a session can be controlled from the lock screen
 - Live BPM change without restarting the engine
 - 6 synthesized sound presets switchable on the fly (`click`, `beep`, `woodblock`, `rim`, `hihat`, `cowbell`)
 - Accent patterns — up to 16 beats, each independently `strong`, `normal`, or `muted`, changeable on the fly
@@ -45,6 +47,9 @@ npx expo install expo-precision-metronome
 
 > [!NOTE]
 > This package requires native code. It does **not** work with Expo Go — use a [development build](https://docs.expo.dev/develop/development-builds/introduction/).
+
+> [!IMPORTANT]
+> Upgrading from 1.x? `onStop` is replaced by `onPlaybackChange`, and audio interruptions now pause instead of stopping. See [MIGRATION.md](MIGRATION.md).
 
 ## Background playback
 
@@ -84,17 +89,21 @@ Without the plugin, passing `background` rejects with `ERR_BACKGROUND_NOT_CONFIG
 
 ### What you get, and what you don't
 
-|         | Behaviour                                                                                   |
-| ------- | ------------------------------------------------------------------------------------------- |
-| Android | Ongoing notification with a Stop button; the process is held at foreground-service priority |
-| iOS     | Playback continues for as long as audio is actually being produced                          |
+|         | Behaviour                                                                                                     |
+| ------- | ------------------------------------------------------------------------------------------------------------- |
+| Android | Ongoing notification with **Pause ↔ Resume** and **Stop**; the process is held at foreground-service priority |
+| iOS     | Playback continues for as long as audio is actually being produced                                            |
+
+The notification renders in two modes. While your app is on screen it shows the title and the buttons only; once the app is backgrounded it adds the current tempo as `"{bpm} BPM"`. The number the user can already read from your own UI is the one number that could go stale, so it is simply not drawn there. A `text` you supply yourself is static, so it is shown in both modes.
+
+There is no pause UI on iOS. That is a decision, not a platform limit — see the `MediaSession` note below.
 
 Known limits:
 
 - **`background` is a per-call request, but the entitlement it needs is app-wide.** Once the plugin is enabled, `UIBackgroundModes: audio` applies to the whole iOS app, so a session started _without_ `background` also keeps playing after you leave the screen — it just has no notification and no Android foreground service behind it. Call `stop()` from your own `AppState` handler if a session must not outlive the foreground.
-- **Swiping the app out of recents stops the metronome.** The audio engine lives with the JS context, which is destroyed along with the task.
-- **No lock screen transport controls.** A `MediaSession` would compete with the music app you are practising along to for the media widget and headset buttons, so the library deliberately does not register one.
-- **Android 13+** gates the notification behind `POST_NOTIFICATIONS`. Request it from your app; if the user declines, playback still works — the notification is just hidden from the shade.
+- **Swiping the app out of recents stops the metronome.** The audio engine lives with the JS context, which is destroyed along with the task. The notification looks like a player, so tell your users otherwise if it matters — players usually survive this and the metronome does not.
+- **No media widget or headset transport controls.** A `MediaSession` (Android) or `MPNowPlayingInfoCenter` (iOS) would give the notification, the lock screen, Wear and Control Center for free — and would capture the headset play/pause button and the media carousel slot from the backing track you are practising along to. Incompatible with `mixWithOthers`, so the library deliberately registers neither. This is also why there is no pause UI on iOS.
+- **Android 13+** gates the notification behind `POST_NOTIFICATIONS`. Call [`requestNotificationPermission()`](#requestnotificationpermission-promiseboolean) before `start({ background })`; if the user declines, playback still works — but the notification is hidden, so pause and stop are only reachable from inside your app. `getState().notificationVisible` tells you whether that happened.
 - **iOS App Review** expects apps declaring `UIBackgroundModes: audio` to genuinely use it.
 
 ### Playing over a backing track
@@ -110,11 +119,20 @@ On iOS this activates the session with `.mixWithOthers`; on Android it requests 
 ## Usage
 
 ```tsx
-import { useEffect } from "react";
-import { start, stop, setBpm, setSound, setPattern } from "expo-precision-metronome";
+import { useEffect, useState } from "react";
+import {
+  getState,
+  setPattern,
+  setSound,
+  start,
+  stop,
+  type PlaybackState,
+} from "expo-precision-metronome";
 import ExpoPrecisionMetronomeModule from "expo-precision-metronome";
 
 export default function Metronome() {
+  const [playback, setPlayback] = useState<PlaybackState>("stopped");
+
   useEffect(() => {
     const beatSub = ExpoPrecisionMetronomeModule.addListener(
       "onBeat",
@@ -123,9 +141,19 @@ export default function Metronome() {
       },
     );
 
-    const stopSub = ExpoPrecisionMetronomeModule.addListener("onStop", ({ reason }) => {
-      console.log(`Stopped: ${reason}`);
-    });
+    // Playback can change without you asking: the notification buttons and audio
+    // interruptions are both command sources of their own.
+    const playbackSub = ExpoPrecisionMetronomeModule.addListener(
+      "onPlaybackChange",
+      ({ state, reason }) => {
+        console.log(`Playback ${state}: ${reason}`);
+        setPlayback(state);
+      },
+    );
+
+    // Events only cover transitions you were mounted for. Reconcile on mount, or a
+    // remount while backgrounded leaves your UI claiming the metronome is playing.
+    getState().then(({ state }) => setPlayback(state));
 
     setSound("woodblock");
     setPattern(["strong", "normal", "normal", "normal"]); // 4/4
@@ -134,11 +162,47 @@ export default function Metronome() {
     return () => {
       stop();
       beatSub.remove();
-      stopSub.remove();
+      playbackSub.remove();
     };
   }, []);
 }
 ```
+
+### Pausing
+
+`pause()` silences the click without tearing the audio stream down, so `resume()` re-enters with the same sample-accurate timing as `start()` — no rebuild, no audible gap.
+
+```ts
+await pause();
+await resume(); // re-enters on the downbeat
+```
+
+Both are idempotent: `pause()` does nothing unless playback is running, `resume()` does nothing unless it is paused, and neither throws when the metronome has already stopped. That matters because they are not the only command source — the Android notification issues the same commands, so a call that lost the race has to be harmless rather than invert into its opposite. For the same reason there is no `toggle()`.
+
+**`resume()` restarts the bar.** The beat counter resets, so playback always re-enters on "one". Pause is pressed by ear at an arbitrary moment and a musician does not re-enter mid-bar. A bar number derived from `beat` (`Math.floor(beat / 4)`) restarts with it.
+
+Resources behave differently on each platform, deliberately:
+
+|                        | Android                                              | iOS                          |
+| ---------------------- | ---------------------------------------------------- | ---------------------------- |
+| Audio focus / session  | Focus is **released** and re-requested on `resume()` | The session **stays active** |
+| Notification / service | Held — the notification is the resume affordance     | n/a                          |
+| Audio stream           | Kept open, writing silence                           | Kept open, writing silence   |
+
+Holding audio focus while silent would keep a backing track ducked for no reason, which is exactly what `mixWithOthers` exists to avoid. iOS cannot do the same: deactivating the session stops background audio output, the app is suspended, and neither `resume()` nor the end-of-interruption notification would ever arrive. The visible consequence on iOS is that with `mixWithOthers: false` a paused metronome still silences other audio.
+
+### Interruptions
+
+The metronome follows platform convention rather than treating every interruption as a stop:
+
+| Cause                                              | Result                                                           |
+| -------------------------------------------------- | ---------------------------------------------------------------- |
+| Headphones unplugged (Android)                     | **Pauses.** Never auto-resumed — the user pulled the plug        |
+| Incoming call / transient focus loss               | **Pauses**, then auto-resumes when the interruption ends cleanly |
+| Another app takes over audio permanently (Android) | **Stops**                                                        |
+| iOS interruption ends without `.shouldResume`      | Stays paused — iOS is telling you not to resume                  |
+
+Every one of these arrives as `onPlaybackChange` with `reason: "interruption"`, so a UI that follows the event needs no special handling.
 
 ### Accent patterns
 
@@ -199,7 +263,7 @@ await setPattern(["strong", "normal", "normal"]); // switch to 3/4 mid-song
 
 Starts the metronome at the given BPM. Resolves when the audio engine has started. Rejects with `RangeError` if `bpm` is outside `BPM_MIN`–`BPM_MAX`, `TypeError` if `options` are malformed, and `ERR_BACKGROUND_NOT_CONFIGURED` if `background` is requested without the config plugin. See [Background playback](#background-playback).
 
-Calling `start()` on a metronome that is already running **restarts** it so the new `bpm` and `options` take effect; the restart is silent, so no `onStop` is emitted. Use `setBpm()` to change tempo without the gap.
+Calling `start()` on a metronome that is already running **or paused** restarts it so the new `bpm` and `options` take effect; the restart is silent, so no `onPlaybackChange` is emitted. Use `setBpm()` to change tempo without the gap.
 
 | Option          | Type                           | Default | Description                                                 |
 | --------------- | ------------------------------ | ------- | ----------------------------------------------------------- |
@@ -208,24 +272,54 @@ Calling `start()` on a metronome that is already running **restarts** it so the 
 
 `BackgroundOptions` — everything except `title` and `text` is Android-only and ignored on iOS:
 
-| Field                  | Type                                | Default       | Description                                         |
-| ---------------------- | ----------------------------------- | ------------- | --------------------------------------------------- |
-| `title`                | `string`                            | `"Metronome"` | Notification title                                  |
-| `text`                 | `string`                            | `"{bpm} BPM"` | Notification body; the default follows `setBpm()`   |
-| `icon`                 | `string`                            | app icon      | Android: drawable or mipmap resource name           |
-| `color`                | `string`                            | —             | Android: accent colour, e.g. `"#f59e0b"`            |
-| `stopLabel`            | `string`                            | `"Stop"`      | Android: label of the stop button                   |
-| `showStopButton`       | `boolean`                           | `true`        | Android: render the stop button                     |
-| `channelName`          | `string`                            | `"Metronome"` | Android: channel name in system settings            |
-| `lockscreenVisibility` | `"public" \| "private" \| "secret"` | `"public"`    | Android: notification visibility on the lock screen |
+| Field                  | Type                                | Default       | Description                                                                                                                         |
+| ---------------------- | ----------------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `title`                | `string`                            | `"Metronome"` | Notification title                                                                                                                  |
+| `text`                 | `string`                            | `"{bpm} BPM"` | Notification body. The default follows `setBpm()` and is shown only while your app is backgrounded; a value you set is shown always |
+| `icon`                 | `string`                            | app icon      | Android: drawable or mipmap resource name                                                                                           |
+| `color`                | `string`                            | —             | Android: accent colour, e.g. `"#f59e0b"`                                                                                            |
+| `stopLabel`            | `string`                            | `"Stop"`      | Android: label of the stop button                                                                                                   |
+| `pauseLabel`           | `string`                            | `"Pause"`     | Android: label of the pause button                                                                                                  |
+| `resumeLabel`          | `string`                            | `"Resume"`    | Android: label the pause button takes while paused                                                                                  |
+| `showStopButton`       | `boolean`                           | `true`        | Android: render the stop button. The pause button is always rendered                                                                |
+| `channelName`          | `string`                            | `"Metronome"` | Android: channel name in system settings                                                                                            |
+| `lockscreenVisibility` | `"public" \| "private" \| "secret"` | `"public"`    | Android: notification visibility on the lock screen                                                                                 |
 
 #### `stop(): Promise<void>`
 
-Stops the metronome. Emits `onStop` with `reason: "explicit"`.
+Stops the metronome and tears the audio engine down. Emits `onPlaybackChange` with `state: "stopped"`, `reason: "explicit"`. A no-op when already stopped, and a no-op emits nothing.
+
+#### `pause(): Promise<void>`
+
+Silences the metronome while keeping the engine alive. A no-op unless playback is running. See [Pausing](#pausing).
+
+#### `resume(): Promise<void>`
+
+Resumes a paused metronome **on the downbeat** — the beat counter resets. A no-op unless playback is paused; in particular it does not throw when the metronome has already stopped.
+
+#### `getState(): Promise<MetronomeState>`
+
+Reads the current state. `onPlaybackChange` covers transitions, not a listener that was not mounted for one — with playback controllable from the notification, a component that remounted while your app was backgrounded has no other way to find out what happened. Call it on mount to reconcile.
+
+| Property              | Type            | Description                                                                                                                                                                    |
+| --------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `state`               | `PlaybackState` | `"running"`, `"paused"` or `"stopped"`                                                                                                                                         |
+| `bpm`                 | `number`        | Current tempo; `0` before the first `start()`                                                                                                                                  |
+| `notificationVisible` | `boolean`       | Whether the Android notification is actually on screen. `false` on iOS, and on Android when notifications are switched off — pause is then reachable only from inside your app |
+
+#### `requestNotificationPermission(): Promise<boolean>`
+
+Asks for `POST_NOTIFICATIONS` on Android 13+ and resolves to whether it is now granted. Resolves `true` immediately on iOS and below Android 13.
+
+The library never prompts on its own: a system dialog thrown at the first `start({ background })` lands at a moment your app cannot predict, and on Android 13 a second denial means it never appears again. Call this when it suits your flow.
+
+#### `getNotificationPermission(): Promise<PermissionStatus>`
+
+Reads the permission — `"granted"`, `"denied"` or `"undetermined"` — without ever prompting. `"undetermined"` means a request would still surface the dialog.
 
 #### `setBpm(bpm: number): Promise<void>`
 
-Changes the tempo on the fly without stopping the engine. Throws `RangeError` if `bpm` is outside `BPM_MIN`–`BPM_MAX`.
+Changes the tempo on the fly without stopping the engine. Throws `RangeError` if `bpm` is outside `BPM_MIN`–`BPM_MAX`. Applies in every state: while paused it is banked and takes effect on `resume()`.
 
 #### `setSound(sound: SoundPreset): Promise<void>`
 
@@ -245,19 +339,22 @@ Subscribe via `ExpoPrecisionMetronomeModule.addListener(eventName, handler)`. Al
 
 Emitted on every beat.
 
-| Property    | Type         | Description                                               |
-| ----------- | ------------ | --------------------------------------------------------- |
-| `beat`      | `number`     | Beat index, starting at 0, increments each beat           |
-| `timestamp` | `number`     | High-resolution audio clock timestamp (seconds)           |
-| `accent`    | `BeatAccent` | Accent level of this beat: `strong`, `normal`, or `muted` |
+| Property    | Type         | Description                                                         |
+| ----------- | ------------ | ------------------------------------------------------------------- |
+| `beat`      | `number`     | Beat index, starting at 0, counted from `start()` **or** `resume()` |
+| `timestamp` | `number`     | High-resolution audio clock timestamp (seconds)                     |
+| `accent`    | `BeatAccent` | Accent level of this beat: `strong`, `normal`, or `muted`           |
 
-#### `onStop`
+#### `onPlaybackChange`
 
-Emitted when the metronome stops for any reason.
+Emitted on every real transition between `running`, `paused` and `stopped`, whoever caused it. A command that changes nothing — `pause()` on an already-paused metronome, a double-tap in the notification shade — emits **nothing**, so a consumer counting transitions cannot drift.
 
-| Property | Type                                             | Description                                                                                                                                                                                                  |
-| -------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `reason` | `"explicit" \| "interruption" \| "notification"` | `"explicit"` — stopped by `stop()`. `"interruption"` — stopped by the OS (incoming call, audio focus loss, headphones unplugged). `"notification"` — Android only, the user pressed Stop in the notification |
+| Property | Type                                             | Description                                                                                                                                                                                                 |
+| -------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `state`  | `"running" \| "paused" \| "stopped"`             | The state now in effect                                                                                                                                                                                     |
+| `reason` | `"explicit" \| "interruption" \| "notification"` | `"explicit"` — your own `stop()`, `pause()` or `resume()`. `"interruption"` — the OS (incoming call, audio focus loss, headphones unplugged). `"notification"` — Android only, a button in the notification |
+
+A restart caused by calling `start()` again emits nothing: you asked for it, and it is one transition from `running` to `running`.
 
 ---
 
@@ -272,6 +369,7 @@ Emitted when the metronome stops for any reason.
 | `BEAT_PATTERN_MAX_LENGTH` | `16`                                                   | Maximum beats in a pattern             |
 | `DEFAULT_BEAT_PATTERN`    | `["strong","normal","normal","normal"]`                | Default pattern used when none is set  |
 | `LOCKSCREEN_VISIBILITIES` | `["public","private","secret"]`                        | Valid Android lock screen visibilities |
+| `PERMISSION_STATUSES`     | `["granted","denied","undetermined"]`                  | Valid notification permission statuses |
 
 ---
 
@@ -286,9 +384,22 @@ type BeatEventPayload = {
   accent: BeatAccent;
 };
 
-type StopEventPayload = {
-  reason: "explicit" | "interruption" | "notification";
+type PlaybackState = "running" | "paused" | "stopped";
+
+type PlaybackChangeReason = "explicit" | "interruption" | "notification";
+
+type PlaybackEventPayload = {
+  state: PlaybackState;
+  reason: PlaybackChangeReason;
 };
+
+type MetronomeState = {
+  state: PlaybackState;
+  bpm: number;
+  notificationVisible: boolean;
+};
+
+type PermissionStatus = "granted" | "denied" | "undetermined";
 
 type SoundPreset = "click" | "beep" | "woodblock" | "rim" | "hihat" | "cowbell";
 
@@ -300,6 +411,8 @@ type BackgroundOptions = {
   icon?: string;
   color?: string;
   stopLabel?: string;
+  pauseLabel?: string;
+  resumeLabel?: string;
   showStopButton?: boolean;
   channelName?: string;
   lockscreenVisibility?: LockscreenVisibility;
