@@ -8,6 +8,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -51,6 +52,12 @@ class MetronomeServiceTest {
 
     private fun ServiceController<MetronomeService>.shadow(): ShadowService = shadowOf(get())
 
+    /** A notification button: redelivered to the instance that is already running. */
+    private fun ServiceController<MetronomeService>.tap(action: String, startId: Int) {
+        get().onStartCommand(MetronomeService.intent(context, action), 0, startId)
+        settle()
+    }
+
     /** What the shade is currently showing, as opposed to what was last promoted. */
     private fun posted(): Notification? =
         shadowOf(context.getSystemService(NotificationManager::class.java))
@@ -58,6 +65,8 @@ class MetronomeServiceTest {
 
     private val Notification.text: String?
         get() = extras.getString("android.text")
+
+    private fun Notification.actionLabels() = actions.orEmpty().map { it.title.toString() }
 
     @Test
     fun start_promotes_to_the_foreground_and_keeps_running() {
@@ -97,9 +106,52 @@ class MetronomeServiceTest {
         val controller = deliver(MetronomeService.ACTION_STOP)
 
         assertEquals(Playback.Stopped, MetronomeSession.state.playback)
-        assertEquals(MetronomeService.STOP_REASON_NOTIFICATION, MetronomeSession.state.reason)
+        assertEquals(MetronomeService.REASON_NOTIFICATION, MetronomeSession.state.reason)
         assertTrue(controller.shadow().isStoppedBySelf)
         assertNotNull(controller.shadow().lastForegroundNotification)
+    }
+
+    @Test
+    fun the_notification_pause_button_suspends_playback_without_stopping_the_service() {
+        val controller = deliver(MetronomeService.ACTION_START)
+
+        controller.tap(MetronomeService.ACTION_PAUSE, 1)
+
+        assertEquals(Playback.Paused, MetronomeSession.state.playback)
+        assertEquals(MetronomeService.REASON_NOTIFICATION, MetronomeSession.state.reason)
+        // The notification is the only way back, so it — and the service behind it —
+        // has to outlive the pause.
+        assertFalse(controller.shadow().isStoppedBySelf)
+    }
+
+    /** End to end: an action delivered to the service flips the rendered button. */
+    @Test
+    fun pausing_and_resuming_swap_the_rendered_button_label() {
+        val controller = deliver(MetronomeService.ACTION_START)
+        settle()
+        assertEquals(listOf("Pause", "Stop"), posted()?.actionLabels())
+
+        controller.tap(MetronomeService.ACTION_PAUSE, 1)
+        assertEquals(listOf("Resume", "Stop"), posted()?.actionLabels())
+
+        controller.tap(MetronomeService.ACTION_RESUME, 2)
+        assertEquals(listOf("Pause", "Stop"), posted()?.actionLabels())
+    }
+
+    /**
+     * The shade is responsive enough to double-tap by accident. The session makes the
+     * second tap a no-op, and nothing may be redrawn for a transition that did not
+     * happen.
+     */
+    @Test
+    fun a_repeated_pause_from_the_shade_redraws_nothing() {
+        val controller = deliver(MetronomeService.ACTION_START)
+        controller.tap(MetronomeService.ACTION_PAUSE, 1)
+        val before = posted()
+
+        controller.tap(MetronomeService.ACTION_PAUSE, 2)
+
+        assertSame(before, posted())
     }
 
     /** Swiping the app away tears down the JS context, so no event can be delivered. */

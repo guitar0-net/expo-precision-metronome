@@ -44,22 +44,41 @@ class MetronomeService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val state = MetronomeSession.state
+        val action = intent?.action
 
-        // Promote unconditionally, before deciding anything else. Every delivery here
-        // is armed by startForegroundService(), and returning from onStartCommand()
-        // without startForeground() is a ForegroundServiceDidNotStartInTimeException —
+        // Promote before deciding anything else. A delivery armed by
+        // startForegroundService() that returns from onStartCommand() without
+        // startForeground() is a ForegroundServiceDidNotStartInTimeException —
         // including when the reason to bail is that playback has already ended. That
         // case is reachable: the engine can fail or be interrupted between start()
         // launching the service and the service being handed the intent, which clears
         // the options from the main thread. Defaults stand in for that window; the
         // notification is torn down again by stopSelf() a few lines down.
-        promoteToForeground(state)
+        //
+        // Pause and resume are the exception. They arrive through
+        // PendingIntent.getService(), a plain startService() that arms no deadline, and
+        // the transition they cause is redrawn by the listener below with the new
+        // button label. Promoting as well would post the same notification twice per
+        // tap — straight towards the rate limit the whole update strategy exists to
+        // stay under. A pause reaching an instance that has never promoted is still
+        // promoted, because until then there is nothing for the listener to redraw.
+        if (!promoted || (action != ACTION_PAUSE && action != ACTION_RESUME)) {
+            promoteToForeground(state)
+        }
 
+        // Separate actions rather than one toggle: the shade and the app's own UI issue
+        // commands independently, so a tap that lost the race has to be a no-op instead
+        // of the opposite action. The session decides whether anything happened, which
+        // is why nothing here consults the playback state first.
         when {
             state.background == null -> stopSelf()
 
-            intent?.action == ACTION_STOP -> {
-                MetronomeSession.stop(STOP_REASON_NOTIFICATION)
+            action == ACTION_PAUSE -> MetronomeSession.pause(REASON_NOTIFICATION)
+
+            action == ACTION_RESUME -> MetronomeSession.resume(REASON_NOTIFICATION)
+
+            action == ACTION_STOP -> {
+                MetronomeSession.stop(REASON_NOTIFICATION)
                 stopSelf()
             }
         }
@@ -79,7 +98,7 @@ class MetronomeService : Service() {
         ServiceCompat.startForeground(
             this,
             NotificationFactory.NOTIFICATION_ID,
-            NotificationFactory.build(this, options, state.bpm),
+            NotificationFactory.build(this, options, state.bpm, state.playback),
             ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
         )
         promoted = true
@@ -98,6 +117,10 @@ class MetronomeService : Service() {
      *
      * Options are compared by identity because every `start()` builds a fresh record, so
      * a restart always redraws while a tempo change never rebuilds them.
+     *
+     * A change of [Playback] is exempt from all of that and always redraws: it swaps the
+     * button label, it can only be caused by a direct user action, and a visible lag
+     * between tapping Pause and the label changing reads as "it didn't work".
      */
     @SuppressLint("MissingPermission")
     private fun onSessionChange(old: MetronomeState, new: MetronomeState) {
@@ -108,7 +131,8 @@ class MetronomeService : Service() {
         val options = new.background ?: return
         if (new.playback == Playback.Stopped) return
 
-        if (old.background === options &&
+        if (old.playback == new.playback &&
+            old.background === options &&
             NotificationFactory.contentText(options, old.bpm) ==
             NotificationFactory.contentText(options, new.bpm)
         ) {
@@ -120,15 +144,17 @@ class MetronomeService : Service() {
         if (!manager.areNotificationsEnabled()) return
         manager.notify(
             NotificationFactory.NOTIFICATION_ID,
-            NotificationFactory.build(this, options, new.bpm)
+            NotificationFactory.build(this, options, new.bpm, new.playback)
         )
     }
 
     companion object {
         const val ACTION_START = "net.guitar0.metronome.action.START"
         const val ACTION_STOP = "net.guitar0.metronome.action.STOP"
+        const val ACTION_PAUSE = "net.guitar0.metronome.action.PAUSE"
+        const val ACTION_RESUME = "net.guitar0.metronome.action.RESUME"
 
-        const val STOP_REASON_NOTIFICATION = "notification"
+        const val REASON_NOTIFICATION = "notification"
 
         /**
          * The class argument already pins the destination, but that guarantee is invisible
