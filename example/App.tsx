@@ -5,9 +5,11 @@ import ExpoPrecisionMetronomeModule, {
   BPM_MAX,
   BPM_MIN,
   DEFAULT_BEAT_PATTERN,
+  getNotificationPermission,
   getState,
   pause,
   PlaybackState,
+  requestNotificationPermission,
   resume,
   setPattern,
   SOUND_PRESETS,
@@ -19,8 +21,6 @@ import ExpoPrecisionMetronomeModule, {
 } from 'expo-precision-metronome';
 import { useEffect, useState } from 'react';
 import {
-  PermissionsAndroid,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -30,12 +30,17 @@ import {
 
 /**
  * Android 13+ hides the foreground-service notification unless the user granted
- * POST_NOTIFICATIONS. Playback works either way, but the Stop button would be
- * unreachable, so the app asks — this is the consumer's job, not the library's.
+ * POST_NOTIFICATIONS, and the notification carries the only Pause and Stop buttons
+ * reachable from outside the app. Playback works either way, so the library never
+ * prompts by itself — deciding when to ask is the app's job, and this is the moment
+ * this app picks: the user has just asked for background playback.
+ *
+ * Asking only when the answer is still open keeps a second, pointless dialog from
+ * being requested after a denial.
  */
-async function requestNotificationPermission() {
-  if (Platform.OS !== 'android' || Number(Platform.Version) < 33) return;
-  await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+async function ensureNotificationPermission() {
+  if ((await getNotificationPermission()) !== 'undetermined') return;
+  await requestNotificationPermission();
 }
 
 const PATTERN_PRESETS: { label: string; pattern: readonly BeatAccent[] }[] = [
@@ -100,7 +105,7 @@ export default function App() {
   };
 
   const handlePlay = () => {
-    (background ? requestNotificationPermission() : Promise.resolve())
+    (background ? ensureNotificationPermission() : Promise.resolve())
       .then(() => setPattern(pattern))
       .then(() => start(bpm, { background, mixWithOthers }))
       .then(() => setPlayback('running'))

@@ -5,6 +5,7 @@ import type {
   ExpoPrecisionMetronomeModuleEvents,
   MetronomeState,
   NativeStartOptions,
+  PermissionStatus,
   SoundPreset,
 } from "./ExpoPrecisionMetronome.types";
 
@@ -14,6 +15,8 @@ declare class ExpoPrecisionMetronomeModule extends NativeModule<ExpoPrecisionMet
   pause(): Promise<void>;
   resume(): Promise<void>;
   getState(): Promise<MetronomeState>;
+  requestNotificationPermission(): Promise<boolean>;
+  getNotificationPermission(): Promise<PermissionStatus>;
   setBpm(bpm: number): Promise<void>;
   setSound(sound: SoundPreset): Promise<void>;
   setPattern(pattern: BeatAccent[]): Promise<void>;

@@ -35,6 +35,19 @@ private func isBackgroundAudioConfigured() -> Bool {
     return modes?.contains(audioBackgroundMode) ?? false
 }
 
+/// Both entry points that take a tempo reject the same range with the same message,
+/// so neither can drift from the bounds JS validates against.
+private func assertBpm(_ bpm: Double) throws {
+    guard bpm >= bpmMin, bpm <= bpmMax else {
+        let msg = "BPM must be between \(Int(bpmMin)) and \(Int(bpmMax)), got \(bpm)"
+        throw NSError(
+            domain: "ExpoPrecisionMetronome",
+            code: 1,
+            userInfo: [NSLocalizedDescriptionKey: msg]
+        )
+    }
+}
+
 public class ExpoPrecisionMetronomeModule: Module {
     private var engine: MetronomeEngine?
 
@@ -60,10 +73,7 @@ public class ExpoPrecisionMetronomeModule: Module {
         }
 
         AsyncFunction("start") { (bpm: Double, options: StartOptions?) in
-            guard bpm >= bpmMin, bpm <= bpmMax else {
-                let msg = "BPM must be between \(Int(bpmMin)) and \(Int(bpmMax)), got \(bpm)"
-                throw NSError(domain: "ExpoPrecisionMetronome", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
-            }
+            try assertBpm(bpm)
             if options?.background != nil, !isBackgroundAudioConfigured() {
                 throw BackgroundNotConfiguredException()
             }
@@ -95,11 +105,20 @@ public class ExpoPrecisionMetronomeModule: Module {
             ]
         }
 
+        /// There is no metronome notification on iOS — see the MediaSession rejection in
+        /// the pause/resume design notes — so there is nothing to ask for. Both resolve
+        /// as granted rather than throwing, to spare every caller a platform branch
+        /// around a call that has nothing to do on this platform.
+        AsyncFunction("requestNotificationPermission") { () -> Bool in
+            true
+        }
+
+        AsyncFunction("getNotificationPermission") { () -> String in
+            "granted"
+        }
+
         AsyncFunction("setBpm") { (bpm: Double) in
-            guard bpm >= bpmMin, bpm <= bpmMax else {
-                let msg = "BPM must be between \(Int(bpmMin)) and \(Int(bpmMax)), got \(bpm)"
-                throw NSError(domain: "ExpoPrecisionMetronome", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
-            }
+            try assertBpm(bpm)
             self.engine?.setBpm(bpm: bpm)
         }
 

@@ -3,6 +3,7 @@ import { NativeModule, registerWebModule } from "expo";
 import type {
   ExpoPrecisionMetronomeModuleEvents,
   MetronomeState,
+  PermissionStatus,
 } from "./ExpoPrecisionMetronome.types";
 
 class ExpoPrecisionMetronomeModule extends NativeModule<ExpoPrecisionMetronomeModuleEvents> {
@@ -19,6 +20,12 @@ class ExpoPrecisionMetronomeModule extends NativeModule<ExpoPrecisionMetronomeMo
     throw new Error("ExpoPrecisionMetronome is not supported on web");
   }
   async getState(): Promise<MetronomeState> {
+    throw new Error("ExpoPrecisionMetronome is not supported on web");
+  }
+  async requestNotificationPermission(): Promise<boolean> {
+    throw new Error("ExpoPrecisionMetronome is not supported on web");
+  }
+  async getNotificationPermission(): Promise<PermissionStatus> {
     throw new Error("ExpoPrecisionMetronome is not supported on web");
   }
   async setBpm(_bpm: number): Promise<void> {

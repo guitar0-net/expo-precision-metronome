@@ -106,6 +106,18 @@ export type MetronomeState = {
   notificationVisible: boolean;
 };
 
+export const PERMISSION_STATUSES = ["granted", "denied", "undetermined"] as const;
+/**
+ * Android 13+ runtime status of `POST_NOTIFICATIONS`. `"undetermined"` means the
+ * dialog has not been shown yet, so a request would surface it; `"denied"` means it
+ * was declined and, after the second denial, will never appear again.
+ *
+ * Always `"granted"` on iOS and below Android 13, where posting the notification
+ * needs no runtime permission. Whether one is actually visible is a separate
+ * question — see `MetronomeState.notificationVisible`.
+ */
+export type PermissionStatus = (typeof PERMISSION_STATUSES)[number];
+
 export type ExpoPrecisionMetronomeModuleEvents = {
   onBeat: (params: BeatEventPayload) => void;
   onPlaybackChange: (params: PlaybackEventPayload) => void;
