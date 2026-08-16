@@ -111,18 +111,19 @@ class MetronomeService : Service() {
      *
      * Deduplicated on the rendered content, not on the inputs behind it: a tempo change
      * while the app is on screen, or under a caller-supplied `text`, changes nothing the
-     * user can see — and comparing the two snapshots is enough to know it. `120.0` and
-     * `120.4` render identically too. Redrawing anyway
-     * is not merely wasteful — `NotificationManagerService` rate-limits a package at
-     * roughly five updates a second and then silently drops the rest, which leaves the
-     * notification stuck on an arbitrary value.
+     * user can see — and comparing the two snapshots is enough to know it. Redrawing
+     * anyway is not merely wasteful — `NotificationManagerService` rate-limits a package
+     * at roughly five updates a second and then silently drops the rest, which leaves
+     * the notification stuck on an arbitrary value.
      *
      * Options are compared by identity because every `start()` builds a fresh record, so
      * a restart always redraws while a tempo change never rebuilds them.
      *
      * A change of [Playback] is exempt from all of that and always redraws: it swaps the
-     * button label, it can only be caused by a direct user action, and a visible lag
-     * between tapping Pause and the label changing reads as "it didn't work".
+     * button label, and a visible lag between tapping Pause and the label changing reads
+     * as "it didn't work". Not every such change is a button press — an interruption
+     * arrives the same way — but interruptions come in ones, not at slider rates, so the
+     * exemption stays well clear of the limit.
      */
     @SuppressLint("MissingPermission")
     private fun onSessionChange(old: MetronomeState, new: MetronomeState) {
