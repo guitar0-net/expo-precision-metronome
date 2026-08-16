@@ -41,25 +41,26 @@ internal object NotificationFactory {
     }
 
     /**
-     * The pause/resume pair is rendered from [playback] alone, so the button always
+     * Rendered from one snapshot, so no two lines of the notification can describe
+     * different moments.
+     *
+     * The pause/resume pair follows `state.playback` alone, so the button always
      * describes what the next tap will do. There is no flag to turn it off: suspending
      * playback from outside the app is the reason this notification carries buttons at
-     * all, and Stop on its own is what `background: true` produced before.
+     * all, and Stop on its own is what `background: true` produced before. The buttons
+     * stay in both render modes — their labels change only on a direct user action, so
+     * they cause no churn, and dropping them would make the notification change height
+     * on every app switch.
      *
      * Actions carry no icons. Since Android 7 the shade renders them as plain text, and
      * the only surfaces that still draw the icon are Wear and `MediaStyle` — and a media
      * session is deliberately not registered, or the metronome would capture the headset
      * play/pause button from the backing track the user is practising along to.
      */
-    fun build(
-        context: Context,
-        options: BackgroundOptions,
-        bpm: Double,
-        playback: Playback
-    ): Notification {
+    fun build(context: Context, options: BackgroundOptions, state: MetronomeState): Notification {
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle(options.title)
-            .setContentText(contentText(options, bpm))
+            .setContentText(contentText(options, state))
             .setSmallIcon(resolveIcon(context, options.icon))
             .setOngoing(true)
             .setSilent(true)
@@ -73,7 +74,7 @@ internal object NotificationFactory {
 
         launchIntent(context)?.let { builder.setContentIntent(it) }
 
-        if (playback == Playback.Paused) {
+        if (state.playback == Playback.Paused) {
             builder.addAction(0, options.resumeLabel, resumeIntent(context))
         } else {
             builder.addAction(0, options.pauseLabel, pauseIntent(context))
@@ -87,12 +88,21 @@ internal object NotificationFactory {
     }
 
     /**
-     * The content line as it will be rendered. Exposed so the service can decide whether
-     * a state change is worth a redraw by comparing what the user would actually see,
-     * rather than the inputs behind it.
+     * The content line as it will be rendered, or `null` for no line at all. Exposed so
+     * the service can decide whether a transition is worth a redraw by comparing what
+     * the user would actually see, rather than the inputs behind it.
+     *
+     * The tempo is dropped while the app is on screen. It is the only part of the
+     * notification that follows `setBpm()`, and the app is already showing the same
+     * number in its own UI — removing it makes a stale reading structurally impossible
+     * instead of merely unlikely, including when the shade is pulled down over a live
+     * app and the activity never pauses at all.
+     *
+     * A caller-supplied [BackgroundOptions.text] is static by definition, so it is shown
+     * in both modes and never redrawn.
      */
-    fun contentText(options: BackgroundOptions, bpm: Double): String =
-        options.text ?: defaultText(bpm)
+    fun contentText(options: BackgroundOptions, state: MetronomeState): String? =
+        options.text ?: if (state.appInForeground) null else defaultText(state.bpm)
 
     /** Falls back to the app icon; consumers should pass a monochrome drawable via `icon`. */
     private fun resolveIcon(context: Context, name: String?): Int {

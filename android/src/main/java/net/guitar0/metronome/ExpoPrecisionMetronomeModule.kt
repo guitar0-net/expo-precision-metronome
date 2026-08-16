@@ -113,6 +113,17 @@ class ExpoPrecisionMetronomeModule : Module() {
             MetronomeSession.addListener(listener)
         }
 
+        // What the notification renders depends on whether the user can already see the
+        // tempo in the app itself. The module writes the flag into the session and the
+        // service reacts to it, so there is still exactly one owner of the notification.
+        OnActivityEntersForeground {
+            MetronomeSession.setForeground(true)
+        }
+
+        OnActivityEntersBackground {
+            MetronomeSession.setForeground(false)
+        }
+
         OnDestroy {
             // Unsubscribed first: what follows is teardown, not a transition anyone is
             // owed an event for.

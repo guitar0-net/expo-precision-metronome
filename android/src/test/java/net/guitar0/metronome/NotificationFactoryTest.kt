@@ -4,6 +4,7 @@ import androidx.core.app.NotificationCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -15,11 +16,22 @@ class NotificationFactoryTest {
 
     private val context get() = ApplicationProvider.getApplicationContext<android.content.Context>()
 
+    /** Backgrounded by default: that is the mode in which the notification is read. */
     private fun build(
         options: BackgroundOptions = BackgroundOptions(),
         bpm: Double = 120.0,
-        playback: Playback = Playback.Running
-    ) = NotificationFactory.build(context, options, bpm, playback)
+        playback: Playback = Playback.Running,
+        appInForeground: Boolean = false
+    ) = NotificationFactory.build(
+        context,
+        options,
+        MetronomeState(
+            playback = playback,
+            bpm = bpm,
+            background = options,
+            appInForeground = appInForeground
+        )
+    )
 
     private fun android.app.Notification.actionLabels() =
         actions.orEmpty().map { it.title.toString() }
@@ -50,6 +62,39 @@ class NotificationFactoryTest {
 
         assertEquals("Практика", NotificationCompat.getContentTitle(notification))
         assertEquals("4/4", NotificationCompat.getContentText(notification))
+    }
+
+    /**
+     * Only what varies can go stale, and while the app is on screen the user is reading
+     * the tempo from its own UI anyway.
+     */
+    @Test
+    fun the_tempo_is_omitted_while_the_app_is_in_the_foreground() {
+        val notification = build(appInForeground = true)
+
+        assertEquals("Metronome", NotificationCompat.getContentTitle(notification))
+        assertNull(NotificationCompat.getContentText(notification))
+    }
+
+    @Test
+    fun caller_supplied_text_is_shown_in_both_render_modes() {
+        val options = BackgroundOptions().apply { text = "4/4" }
+
+        assertEquals(
+            "4/4",
+            NotificationCompat.getContentText(build(options, appInForeground = true))
+        )
+        assertEquals(
+            "4/4",
+            NotificationCompat.getContentText(build(options, appInForeground = false))
+        )
+    }
+
+    /** Buttons do not depend on the render mode: they would change the height. */
+    @Test
+    fun actions_are_present_in_both_render_modes() {
+        assertEquals(listOf("Pause", "Stop"), build(appInForeground = true).actionLabels())
+        assertEquals(listOf("Pause", "Stop"), build(appInForeground = false).actionLabels())
     }
 
     @Test

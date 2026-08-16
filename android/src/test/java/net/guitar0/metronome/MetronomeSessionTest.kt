@@ -4,6 +4,7 @@ import android.os.Looper
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -176,6 +177,28 @@ class MetronomeSessionTest {
 
         assertEquals(180.0, MetronomeSession.state.bpm, 0.0)
         assertEquals(Playback.Paused, MetronomeSession.state.playback)
+    }
+
+    /** Where the app is has nothing to do with playback, so it survives both. */
+    @Test
+    fun the_foreground_flag_outlives_start_and_stop() {
+        MetronomeSession.setForeground(false)
+
+        MetronomeSession.start(120.0, BackgroundOptions())
+        assertFalse(MetronomeSession.state.appInForeground)
+
+        MetronomeSession.stop("explicit")
+        assertFalse(MetronomeSession.state.appInForeground)
+    }
+
+    @Test
+    fun repeating_the_foreground_flag_dispatches_nothing() {
+        start()
+
+        MetronomeSession.setForeground(true)
+        settle()
+
+        assertTrue("the app was already in the foreground", transitions.isEmpty())
     }
 
     @Test
