@@ -109,12 +109,15 @@ public class ExpoPrecisionMetronomeModule: Module {
         /// the pause/resume design notes — so there is nothing to ask for. Both resolve
         /// as granted rather than throwing, to spare every caller a platform branch
         /// around a call that has nothing to do on this platform.
+        ///
+        /// `canAskAgain` is true for the same reason it is true for a granted Android
+        /// permission: nothing here is a denial the caller has to route around.
         AsyncFunction("requestNotificationPermission") { () -> Bool in
             true
         }
 
-        AsyncFunction("getNotificationPermission") { () -> String in
-            "granted"
+        AsyncFunction("getNotificationPermission") { () -> [String: Any] in
+            ["status": "granted", "canAskAgain": true]
         }
 
         AsyncFunction("setBpm") { (bpm: Double) in

@@ -35,11 +35,13 @@ import {
  * prompts by itself — deciding when to ask is the app's job, and this is the moment
  * this app picks: the user has just asked for background playback.
  *
- * Asking only when the answer is still open keeps a second, pointless dialog from
- * being requested after a denial.
+ * Gated on `canAskAgain`, not on `status === 'undetermined'`: Android 13 shows the
+ * dialog a second time after the first denial, and only stops after that. Asking
+ * again is how a user who declined by reflex gets the feature back.
  */
 async function ensureNotificationPermission() {
-  if ((await getNotificationPermission()) !== 'undetermined') return;
+  const { status, canAskAgain } = await getNotificationPermission();
+  if (status === 'granted' || !canAskAgain) return;
   await requestNotificationPermission();
 }
 

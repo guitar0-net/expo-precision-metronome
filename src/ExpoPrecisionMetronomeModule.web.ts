@@ -3,7 +3,7 @@ import { NativeModule, registerWebModule } from "expo";
 import type {
   ExpoPrecisionMetronomeModuleEvents,
   MetronomeState,
-  PermissionStatus,
+  NotificationPermission,
 } from "./ExpoPrecisionMetronome.types";
 
 class ExpoPrecisionMetronomeModule extends NativeModule<ExpoPrecisionMetronomeModuleEvents> {
@@ -25,7 +25,7 @@ class ExpoPrecisionMetronomeModule extends NativeModule<ExpoPrecisionMetronomeMo
   async requestNotificationPermission(): Promise<boolean> {
     throw new Error("ExpoPrecisionMetronome is not supported on web");
   }
-  async getNotificationPermission(): Promise<PermissionStatus> {
+  async getNotificationPermission(): Promise<NotificationPermission> {
     throw new Error("ExpoPrecisionMetronome is not supported on web");
   }
   async setBpm(_bpm: number): Promise<void> {

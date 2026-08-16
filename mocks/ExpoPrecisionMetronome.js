@@ -16,7 +16,10 @@ module.exports = {
   // Granted is what every platform but Android 13+ reports, and it is the state in
   // which the notification behaves as documented.
   requestNotificationPermission: jest.fn(async () => true),
-  getNotificationPermission: jest.fn(async () => "granted"),
+  getNotificationPermission: jest.fn(async () => ({
+    status: "granted",
+    canAskAgain: true,
+  })),
   setBpm: jest.fn(async () => {}),
   setSound: jest.fn(async () => {}),
   setPattern: jest.fn(async () => {}),

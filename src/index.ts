@@ -11,7 +11,7 @@ import type {
   BeatAccent,
   MetronomeState,
   NativeStartOptions,
-  PermissionStatus,
+  NotificationPermission,
   SoundPreset,
   StartOptions,
 } from "./ExpoPrecisionMetronome.types";
@@ -179,13 +179,24 @@ export function getState(): Promise<MetronomeState> {
  * denial on Android 13 means it never appears again — so the timing belongs to the
  * app. Playback works either way; only the notification, and with it pause from
  * outside the app, is lost.
+ *
+ * Rejects with `ERR_NO_FOREGROUND_ACTIVITY` when called with no activity on
+ * screen. Android cannot show the dialog then, and a silent `false` would be
+ * indistinguishable from a real denial while permanently spending the one
+ * `"undetermined"` this permission gets.
  */
 export function requestNotificationPermission(): Promise<boolean> {
   return ExpoPrecisionMetronomeModule.requestNotificationPermission();
 }
 
-/** Reads the permission without ever prompting — safe to call on every mount. */
-export function getNotificationPermission(): Promise<PermissionStatus> {
+/**
+ * Reads the permission without ever prompting — safe to call on every mount.
+ *
+ * `canAskAgain` is the half that decides whether prompting is worth anything;
+ * `status` alone cannot, because Android 13 shows the dialog again after the first
+ * denial and only stops after the second.
+ */
+export function getNotificationPermission(): Promise<NotificationPermission> {
   return ExpoPrecisionMetronomeModule.getNotificationPermission();
 }
 
