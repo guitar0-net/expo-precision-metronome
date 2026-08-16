@@ -313,9 +313,25 @@ Asks for `POST_NOTIFICATIONS` on Android 13+ and resolves to whether it is now g
 
 The library never prompts on its own: a system dialog thrown at the first `start({ background })` lands at a moment your app cannot predict, and on Android 13 a second denial means it never appears again. Call this when it suits your flow.
 
-#### `getNotificationPermission(): Promise<PermissionStatus>`
+Rejects with `ERR_NO_FOREGROUND_ACTIVITY` when no activity is on screen — Android cannot show the dialog then, and answering `false` would spend the permission's one undetermined state on a dialog the user never saw.
 
-Reads the permission — `"granted"`, `"denied"` or `"undetermined"` — without ever prompting. `"undetermined"` means a request would still surface the dialog.
+#### `getNotificationPermission(): Promise<NotificationPermission>`
+
+Reads the permission without ever prompting.
+
+| Property      | Type               | Description                                                                     |
+| ------------- | ------------------ | ------------------------------------------------------------------------------- |
+| `status`      | `PermissionStatus` | `"granted"`, `"denied"` or `"undetermined"`                                     |
+| `canAskAgain` | `boolean`          | Whether `requestNotificationPermission()` would still surface the system dialog |
+
+```ts
+const { status, canAskAgain } = await getNotificationPermission();
+if (status !== "granted" && canAskAgain) {
+  await requestNotificationPermission();
+}
+```
+
+Gate on `canAskAgain` rather than on `status === "undetermined"`. Android 13 allows two denials before the dialog stops appearing, so `"denied"` covers both a state worth asking from again and one that is final — and a check for `"undetermined"` gives up after the first denial, which is exactly the retry that wins back a user who declined by reflex.
 
 #### `setBpm(bpm: number): Promise<void>`
 
@@ -400,6 +416,11 @@ type MetronomeState = {
 };
 
 type PermissionStatus = "granted" | "denied" | "undetermined";
+
+type NotificationPermission = {
+  status: PermissionStatus;
+  canAskAgain: boolean;
+};
 
 type SoundPreset = "click" | "beep" | "woodblock" | "rim" | "hihat" | "cowbell";
 

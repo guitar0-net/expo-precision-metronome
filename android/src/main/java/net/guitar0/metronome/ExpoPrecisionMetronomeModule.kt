@@ -82,6 +82,13 @@ class PermissionsUnavailableException :
             "modules properly linked?"
     )
 
+class NoForegroundActivityException :
+    CodedException(
+        "requestNotificationPermission() needs an activity on screen to show the " +
+            "system dialog. Call it from a screen the user is looking at, not from a " +
+            "background task."
+    )
+
 class ExpoPrecisionMetronomeModule : Module() {
     private var engine: MetronomeEngine? = null
     private var androidContext: Context? = null
@@ -210,6 +217,13 @@ class ExpoPrecisionMetronomeModule : Module() {
                 promise.resolve(true)
                 return@AsyncFunction
             }
+            // Rejected rather than answered `false`. Without an activity the platform
+            // shows nothing, but Expo banks the permission as asked regardless — which
+            // moves it from "undetermined" to "denied" for good over a dialog that
+            // never appeared. A caller told "no" cannot distinguish that from a real
+            // denial; one told "not now" can try again from a screen.
+            if (appContext.currentActivity == null) throw NoForegroundActivityException()
+
             val permissions = appContext.permissions ?: throw PermissionsUnavailableException()
             permissions.askForPermissions(
                 { result ->
@@ -220,17 +234,28 @@ class ExpoPrecisionMetronomeModule : Module() {
             )
         }
 
+        // Reports `canAskAgain` beside the status because the status alone cannot carry
+        // the decision the caller has to make: Android 13 shows the dialog again after
+        // the first denial and only stops after the second, so "denied" spans both a
+        // state worth retrying from and one that is final.
         AsyncFunction("getNotificationPermission") { promise: Promise ->
             val permission = runtimeNotificationPermission()
             if (permission == null) {
-                promise.resolve(PermissionsStatus.GRANTED.status)
+                promise.resolve(permissionResult(PermissionsStatus.GRANTED, canAskAgain = true))
                 return@AsyncFunction
             }
             val permissions = appContext.permissions ?: throw PermissionsUnavailableException()
             permissions.getPermissions(
                 { result ->
-                    val status = result[permission]?.status ?: PermissionsStatus.UNDETERMINED
-                    promise.resolve(status.status)
+                    val response = result[permission]
+                    promise.resolve(
+                        permissionResult(
+                            response?.status ?: PermissionsStatus.UNDETERMINED,
+                            // Expo reports it only for a denial and defaults the rest to
+                            // true, which is the same shape this API promises.
+                            canAskAgain = response?.canAskAgain ?: true
+                        )
+                    )
                 },
                 permission
             )
@@ -295,6 +320,10 @@ class ExpoPrecisionMetronomeModule : Module() {
         val context = androidContext ?: return false
         return NotificationManagerCompat.from(context).areNotificationsEnabled()
     }
+
+    /** The `NotificationPermission` record as TypeScript declares it. */
+    private fun permissionResult(status: PermissionsStatus, canAskAgain: Boolean) =
+        mapOf("status" to status.status, "canAskAgain" to canAskAgain)
 
     /**
      * `null` below Android 13, where posting a notification needs no runtime permission

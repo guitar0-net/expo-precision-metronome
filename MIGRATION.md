@@ -92,12 +92,17 @@ The notification is now the only way to pause from outside the app, so a missing
 +  requestNotificationPermission,
 +} from "expo-precision-metronome";
 +
-+if ((await getNotificationPermission()) === "undetermined") {
++const { status, canAskAgain } = await getNotificationPermission();
++if (status !== "granted" && canAskAgain) {
 +  await requestNotificationPermission();
 +}
 ```
 
+Gate on `canAskAgain`, not on `status === "undetermined"`. Android 13 shows the dialog again after the first denial and only stops after the second, so a check for `"undetermined"` throws away the one retry the platform allows — the retry that gets the feature back for a user who declined by reflex.
+
 Both resolve as granted on iOS and below Android 13, so no platform branch is needed. The library still never prompts by itself — when to ask remains your decision. `start({ background })` does not throw when the permission is missing; playback works, and `getState().notificationVisible` reports that the notification is hidden.
+
+`requestNotificationPermission()` rejects with `ERR_NO_FOREGROUND_ACTIVITY` when no activity is on screen, because Android cannot show the dialog then. Call it from a screen the user is looking at.
 
 ### New, additive
 

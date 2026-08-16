@@ -109,14 +109,30 @@ export type MetronomeState = {
 export const PERMISSION_STATUSES = ["granted", "denied", "undetermined"] as const;
 /**
  * Android 13+ runtime status of `POST_NOTIFICATIONS`. `"undetermined"` means the
- * dialog has not been shown yet, so a request would surface it; `"denied"` means it
- * was declined and, after the second denial, will never appear again.
+ * dialog has not been shown yet; `"denied"` means it was declined at least once.
  *
- * Always `"granted"` on iOS and below Android 13, where posting the notification
- * needs no runtime permission. Whether one is actually visible is a separate
- * question — see `MetronomeState.notificationVisible`.
+ * Always `"granted"` below Android 13, where posting the notification needs no
+ * runtime permission, and on iOS, where there is no notification to post — see the
+ * `MediaSession` rejection in the README. Whether one is actually visible is a
+ * separate question — see `MetronomeState.notificationVisible`.
  */
 export type PermissionStatus = (typeof PERMISSION_STATUSES)[number];
+
+export type NotificationPermission = {
+  status: PermissionStatus;
+  /**
+   * Whether a request would still surface the system dialog. Android 13 grants two
+   * denials before the dialog stops appearing, so `"denied"` alone cannot tell you
+   * whether asking again is worth anything: gate on
+   * `status !== "granted" && canAskAgain`, never on `status === "undetermined"`,
+   * which throws away the one retry the platform allows.
+   *
+   * `true` whenever the permission is granted or undetermined, and always on iOS
+   * and below Android 13. Reported as `false` while no activity is on screen,
+   * because the dialog cannot be shown without one.
+   */
+  canAskAgain: boolean;
+};
 
 export type ExpoPrecisionMetronomeModuleEvents = {
   onBeat: (params: BeatEventPayload) => void;

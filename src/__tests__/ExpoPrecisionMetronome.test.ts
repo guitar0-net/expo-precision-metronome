@@ -192,15 +192,41 @@ describe("the notification permission api", () => {
   });
 
   test.each(PERMISSION_STATUSES)("get passes '%s' through", async (status) => {
-    mod.getNotificationPermission.mockResolvedValue(status);
+    mod.getNotificationPermission.mockResolvedValue({ status, canAskAgain: true });
 
-    await expect(getNotificationPermission()).resolves.toBe(status);
+    await expect(getNotificationPermission()).resolves.toEqual({
+      status,
+      canAskAgain: true,
+    });
+  });
+
+  // The gate every consumer has to write. `denied` spans both a state Android will
+  // still prompt from and one it never will, so the status cannot carry it alone.
+  test("canAskAgain distinguishes a retryable denial from a final one", async () => {
+    mod.getNotificationPermission.mockResolvedValue({
+      status: "denied",
+      canAskAgain: true,
+    });
+    await expect(getNotificationPermission()).resolves.toMatchObject({
+      canAskAgain: true,
+    });
+
+    mod.getNotificationPermission.mockResolvedValue({
+      status: "denied",
+      canAskAgain: false,
+    });
+    await expect(getNotificationPermission()).resolves.toMatchObject({
+      canAskAgain: false,
+    });
   });
 
   // The library never prompts on its own — the timing of a system dialog is a
   // product decision belonging to the app.
   test("reading the permission never triggers a request", async () => {
-    mod.getNotificationPermission.mockResolvedValue("undetermined");
+    mod.getNotificationPermission.mockResolvedValue({
+      status: "undetermined",
+      canAskAgain: true,
+    });
 
     await getNotificationPermission();
 
