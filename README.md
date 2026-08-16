@@ -329,11 +329,13 @@ Reads the permission without ever prompting.
 ```ts
 const { status, canAskAgain } = await getNotificationPermission();
 if (status !== "granted" && canAskAgain) {
-  await requestNotificationPermission();
+  await requestNotificationPermission().catch(console.error);
 }
 ```
 
 Gate on `canAskAgain` rather than on `status === "undetermined"`. Android 13 allows two denials before the dialog stops appearing, so `"denied"` covers both a state worth asking from again and one that is final — and a check for `"undetermined"` gives up after the first denial, which is exactly the retry that wins back a user who declined by reflex.
+
+`canAskAgain` is `false` only for `"denied"`, so it says nothing about whether the dialog can be shown right now — hence the `catch`.
 
 #### `setBpm(bpm: number): Promise<void>`
 
