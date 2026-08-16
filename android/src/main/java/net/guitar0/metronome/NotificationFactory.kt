@@ -146,10 +146,10 @@ internal object NotificationFactory {
         command(context, MetronomeService.ACTION_RESUME, REQUEST_RESUME)
 
     /**
-     * Each action needs its own request code: two PendingIntents that differ only in
-     * their action are "equal" to the system, so a shared code would have
-     * FLAG_UPDATE_CURRENT rewrite one into the other and both buttons would do the
-     * same thing.
+     * Each action gets its own request code. `Intent.filterEquals` already compares
+     * the action, so the system tells these apart as they stand — the codes keep that
+     * true however the Intents are built later, so no change can have
+     * FLAG_UPDATE_CURRENT rewrite one button's PendingIntent into another's.
      */
     private fun command(context: Context, action: String, requestCode: Int): PendingIntent {
         val intent = MetronomeService.intent(context, action)
