@@ -94,7 +94,7 @@ The notification is now the only way to pause from outside the app, so a missing
 +
 +const { status, canAskAgain } = await getNotificationPermission();
 +if (status !== "granted" && canAskAgain) {
-+  await requestNotificationPermission();
++  await requestNotificationPermission().catch(console.error);
 +}
 ```
 
@@ -102,7 +102,9 @@ Gate on `canAskAgain`, not on `status === "undetermined"`. Android 13 shows the 
 
 Both resolve as granted on iOS and below Android 13, so no platform branch is needed. The library still never prompts by itself — when to ask remains your decision. `start({ background })` does not throw when the permission is missing; playback works, and `getState().notificationVisible` reports that the notification is hidden.
 
-`requestNotificationPermission()` rejects with `ERR_NO_FOREGROUND_ACTIVITY` when no activity is on screen, because Android cannot show the dialog then. Call it from a screen the user is looking at.
+`requestNotificationPermission()` rejects with `ERR_NO_FOREGROUND_ACTIVITY` when no activity is on screen, because Android cannot show the dialog then. Call it from a screen the user is looking at, and keep the rejection off the path that starts playback.
+
+One quirk of the upgrade: a user who declined under 1.x through `PermissionsAndroid` reads back as `"undetermined"`, because the status comes from Expo's own record of having asked and the 1.x call never wrote to it. The gate above fires once for those users, and Android may deny it without showing anything — so don't pair it with copy that assumes a dialog appeared.
 
 ### `showStopButton: false` no longer means "no buttons"
 

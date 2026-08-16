@@ -107,7 +107,14 @@ export default function App() {
   };
 
   const handlePlay = () => {
-    (background ? ensureNotificationPermission() : Promise.resolve())
+    // Awaited, but a rejection must not reach the chain below: the prompt fails when
+    // no activity is on screen — tap Play, then lock the phone — and playback never
+    // depended on the permission in the first place.
+    const asked = background
+      ? ensureNotificationPermission().catch(console.error)
+      : Promise.resolve();
+
+    asked
       .then(() => setPattern(pattern))
       .then(() => start(bpm, { background, mixWithOthers }))
       .then(() => setPlayback('running'))

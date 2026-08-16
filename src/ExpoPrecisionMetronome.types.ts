@@ -108,8 +108,9 @@ export type MetronomeState = {
 
 export const PERMISSION_STATUSES = ["granted", "denied", "undetermined"] as const;
 /**
- * Android 13+ runtime status of `POST_NOTIFICATIONS`. `"undetermined"` means the
- * dialog has not been shown yet; `"denied"` means it was declined at least once.
+ * Android 13+ runtime status of `POST_NOTIFICATIONS`. `"denied"` means Expo asked and
+ * the user declined; `"undetermined"` means Expo has not asked. It tracks that in its
+ * own store, so a denial through any other API still reads as `"undetermined"` here.
  *
  * Always `"granted"` below Android 13, where posting the notification needs no
  * runtime permission, and on iOS, where there is no notification to post — see the
@@ -127,9 +128,10 @@ export type NotificationPermission = {
    * `status !== "granted" && canAskAgain`, never on `status === "undetermined"`,
    * which throws away the one retry the platform allows.
    *
-   * `true` whenever the permission is granted or undetermined, and always on iOS
-   * and below Android 13. Reported as `false` while no activity is on screen,
-   * because the dialog cannot be shown without one.
+   * Only ever `false` for `"denied"` — `true` for granted and undetermined whatever
+   * the app is doing, and always on iOS and below Android 13. So it is not a check
+   * that the dialog can be shown: passing the gate with no activity on screen still
+   * rejects the request. Catch that rather than gating on it.
    */
   canAskAgain: boolean;
 };
