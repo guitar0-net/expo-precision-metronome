@@ -191,6 +191,18 @@ describe("the notification permission api", () => {
     expect(mod.requestNotificationPermission).toHaveBeenCalledTimes(1);
   });
 
+  // Both are part of the documented contract: callers are told to catch them rather
+  // than let a failed prompt take playback down with it, which only works if they
+  // arrive as rejections instead of a `false` that reads like a real denial.
+  test.each(["ERR_NO_FOREGROUND_ACTIVITY", "ERR_NOTIFICATION_PERMISSION_NOT_DECLARED"])(
+    "request rejects with %s rather than resolving false",
+    async (code) => {
+      mod.requestNotificationPermission.mockRejectedValue(new Error(code));
+
+      await expect(requestNotificationPermission()).rejects.toThrow(code);
+    },
+  );
+
   test.each(PERMISSION_STATUSES)("get passes '%s' through", async (status) => {
     mod.getNotificationPermission.mockResolvedValue({ status, canAskAgain: true });
 

@@ -313,7 +313,9 @@ Asks for `POST_NOTIFICATIONS` on Android 13+ and resolves to whether it is now g
 
 The library never prompts on its own: a system dialog thrown at the first `start({ background })` lands at a moment your app cannot predict, and on Android 13 a second denial means it never appears again. Call this when it suits your flow.
 
-Rejects with `ERR_NO_FOREGROUND_ACTIVITY` when no activity is on screen — Android cannot show the dialog then, and answering `false` would spend the permission's one undetermined state on a dialog the user never saw.
+Rejects with `ERR_NO_FOREGROUND_ACTIVITY` when no activity is on screen — Android cannot show the dialog then, and answering `false` would spend the permission's one undetermined state on a dialog the user never saw. Rejects with `ERR_NOTIFICATION_PERMISSION_NOT_DECLARED` when `POST_NOTIFICATIONS` is missing from `AndroidManifest.xml`, which the config plugin adds.
+
+Neither rejection is worth failing a `start()` over: playback does not depend on the permission, only the notification does.
 
 #### `getNotificationPermission(): Promise<NotificationPermission>`
 

@@ -89,6 +89,15 @@ class NoForegroundActivityException :
             "background task."
     )
 
+class NotificationPermissionNotDeclaredException :
+    CodedException(
+        "POST_NOTIFICATIONS is missing from AndroidManifest.xml. Android denies a " +
+            "permission the manifest never declared without showing anything, and " +
+            "reports it as permanently denied from then on. The config plugin adds " +
+            "it — [\"expo-precision-metronome\", { \"backgroundAudio\": true }] — or " +
+            "declare it by hand next to the MetronomeService declaration."
+    )
+
 class ExpoPrecisionMetronomeModule : Module() {
     private var engine: MetronomeEngine? = null
     private var androidContext: Context? = null
@@ -225,6 +234,13 @@ class ExpoPrecisionMetronomeModule : Module() {
             if (appContext.currentActivity == null) throw NoForegroundActivityException()
 
             val permissions = appContext.permissions ?: throw PermissionsUnavailableException()
+            // Checked before asking rather than left to fail: Expo banks the permission
+            // as asked, while a permission the manifest never declared is denied with no
+            // dialog — together pinning it to "denied", canAskAgain false, for the life
+            // of the install over a prompt nobody saw.
+            if (!permissions.isPermissionPresentInManifest(permission)) {
+                throw NotificationPermissionNotDeclaredException()
+            }
             permissions.askForPermissions(
                 { result ->
                     val status = result[permission]?.status

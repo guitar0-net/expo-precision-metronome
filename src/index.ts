@@ -184,6 +184,12 @@ export function getState(): Promise<MetronomeState> {
  * screen. Android cannot show the dialog then, and a silent `false` would be
  * indistinguishable from a real denial while permanently spending the one
  * `"undetermined"` this permission gets.
+ *
+ * Rejects with `ERR_NOTIFICATION_PERMISSION_NOT_DECLARED` when POST_NOTIFICATIONS
+ * is missing from AndroidManifest.xml, which the config plugin adds. Asking anyway
+ * would be denied with no dialog and leave the permission permanently denied.
+ *
+ * Neither rejection should reach the code path that starts playback.
  */
 export function requestNotificationPermission(): Promise<boolean> {
   return ExpoPrecisionMetronomeModule.requestNotificationPermission();
