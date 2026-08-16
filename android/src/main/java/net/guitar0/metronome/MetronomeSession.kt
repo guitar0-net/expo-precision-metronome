@@ -30,6 +30,13 @@ internal data class MetronomeState(
     /** Non-null only while background playback is active — the service draws from it. */
     val background: BackgroundOptions? = null,
     /**
+     * Whether the app's own UI is on screen. The notification omits the tempo while it
+     * is, because a number the user can also read from the app is a number that can be
+     * seen to be stale. Defaults to `true`: playback can only be started from the
+     * foreground, so that is the state the first snapshot describes.
+     */
+    val appInForeground: Boolean = true,
+    /**
      * Why [playback] last changed, or `null` when JS must not hear about it: a restart,
      * or a teardown with no JS context left to hear it. Only meaningful to a listener
      * that has just been handed a change of [playback].
@@ -82,7 +89,24 @@ internal object MetronomeSession {
      * It carries no reason because JS asked for it and does not need telling.
      */
     fun start(bpm: Double, background: BackgroundOptions?) = mutate {
-        MetronomeState(playback = Playback.Running, bpm = bpm, background = background)
+        MetronomeState(
+            playback = Playback.Running,
+            bpm = bpm,
+            background = background,
+            // Carried over rather than defaulted: where the app is has nothing to do
+            // with playback, and the activity reports it only when it changes.
+            appInForeground = it.appInForeground
+        )
+    }
+
+    /**
+     * Driven by the activity lifecycle. It is a session field rather than something the
+     * service works out for itself so that the notification is rendered from one
+     * snapshot — the same rule that keeps "paused" and "no options" from being read
+     * from different halves of an update.
+     */
+    fun setForeground(inForeground: Boolean) = mutate {
+        if (it.appInForeground == inForeground) it else it.copy(appInForeground = inForeground)
     }
 
     /** Applied in every state, including `Stopped`, so the next `start()` is not needed to bank it. */
@@ -114,7 +138,12 @@ internal object MetronomeSession {
         if (it.playback == Playback.Stopped) {
             it
         } else {
-            MetronomeState(playback = Playback.Stopped, bpm = it.bpm, reason = reason)
+            MetronomeState(
+                playback = Playback.Stopped,
+                bpm = it.bpm,
+                appInForeground = it.appInForeground,
+                reason = reason
+            )
         }
     }
 

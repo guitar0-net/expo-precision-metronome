@@ -32,6 +32,9 @@ class MetronomeServiceTest {
     fun setUp() {
         MetronomeSession.reset()
         MetronomeSession.start(120.0, BackgroundOptions())
+        // The tempo only appears once the app is off screen, which is the situation the
+        // notification exists for — so that is the default these tests run in.
+        MetronomeSession.setForeground(false)
         settle()
     }
 
@@ -178,6 +181,40 @@ class MetronomeServiceTest {
         assertEquals("132 BPM", posted()?.text)
     }
 
+    /**
+     * The app's own tempo display is authoritative while it is on screen, so the
+     * notification carries no number that could disagree with it — not even when the
+     * shade is pulled down over a live app and the activity never pauses.
+     */
+    @Test
+    fun the_tempo_appears_and_disappears_with_the_app() {
+        deliver(MetronomeService.ACTION_START)
+        settle()
+        assertEquals("120 BPM", posted()?.text)
+
+        MetronomeSession.setForeground(true)
+        settle()
+        assertNull(posted()?.text)
+
+        MetronomeSession.setForeground(false)
+        settle()
+        assertEquals("120 BPM", posted()?.text)
+    }
+
+    /** Nothing BPM-driven is rendered in that mode, so nothing may be posted either. */
+    @Test
+    fun a_tempo_change_while_the_app_is_on_screen_redraws_nothing() {
+        deliver(MetronomeService.ACTION_START)
+        MetronomeSession.setForeground(true)
+        settle()
+        val before = posted()
+
+        MetronomeSession.setBpm(132.0)
+        settle()
+
+        assertSame(before, posted())
+    }
+
     /** Only what varies can go stale, and a caller-supplied text does not vary. */
     @Test
     fun a_tempo_change_under_a_caller_supplied_text_redraws_nothing() {
@@ -191,6 +228,12 @@ class MetronomeServiceTest {
         settle()
 
         assertSame("nothing the user can see changed, so nothing may be posted", before, posted())
+
+        // Static in both render modes, so an app switch is not a reason to redraw either.
+        MetronomeSession.setForeground(true)
+        settle()
+
+        assertSame(before, posted())
     }
 
     @Test

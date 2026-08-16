@@ -98,7 +98,7 @@ class MetronomeService : Service() {
         ServiceCompat.startForeground(
             this,
             NotificationFactory.NOTIFICATION_ID,
-            NotificationFactory.build(this, options, state.bpm, state.playback),
+            NotificationFactory.build(this, options, state),
             ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
         )
         promoted = true
@@ -110,7 +110,9 @@ class MetronomeService : Service() {
      * frame.
      *
      * Deduplicated on the rendered content, not on the inputs behind it: a tempo change
-     * under a caller-supplied `text` changes nothing the user can see. Redrawing anyway
+     * while the app is on screen, or under a caller-supplied `text`, changes nothing the
+     * user can see — and comparing the two snapshots is enough to know it. `120.0` and
+     * `120.4` render identically too. Redrawing anyway
      * is not merely wasteful — `NotificationManagerService` rate-limits a package at
      * roughly five updates a second and then silently drops the rest, which leaves the
      * notification stuck on an arbitrary value.
@@ -133,8 +135,8 @@ class MetronomeService : Service() {
 
         if (old.playback == new.playback &&
             old.background === options &&
-            NotificationFactory.contentText(options, old.bpm) ==
-            NotificationFactory.contentText(options, new.bpm)
+            NotificationFactory.contentText(options, old) ==
+            NotificationFactory.contentText(options, new)
         ) {
             return
         }
@@ -144,7 +146,7 @@ class MetronomeService : Service() {
         if (!manager.areNotificationsEnabled()) return
         manager.notify(
             NotificationFactory.NOTIFICATION_ID,
-            NotificationFactory.build(this, options, new.bpm, new.playback)
+            NotificationFactory.build(this, options, new)
         )
     }
 
