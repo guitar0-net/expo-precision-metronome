@@ -43,6 +43,12 @@ class BackgroundOptions : Record {
 
     @Field var stopLabel: String = "Stop"
 
+    /** Shown while playback is running; tapping it suspends the metronome. */
+    @Field var pauseLabel: String = "Pause"
+
+    /** Shown in its place while playback is paused. */
+    @Field var resumeLabel: String = "Resume"
+
     @Field var showStopButton: Boolean = true
 
     @Field var channelName: String = "Metronome"

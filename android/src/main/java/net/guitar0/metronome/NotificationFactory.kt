@@ -17,6 +17,10 @@ internal object NotificationFactory {
     private const val PENDING_INTENT_FLAGS =
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
 
+    private const val REQUEST_STOP = 1
+    private const val REQUEST_PAUSE = 2
+    private const val REQUEST_RESUME = 3
+
     /**
      * IMPORTANCE_LOW keeps the notification silent and out of the heads-up area —
      * it is a status indicator, not an alert.
@@ -36,7 +40,23 @@ internal object NotificationFactory {
         NotificationManagerCompat.from(context).createNotificationChannel(channel)
     }
 
-    fun build(context: Context, options: BackgroundOptions, bpm: Double): Notification {
+    /**
+     * The pause/resume pair is rendered from [playback] alone, so the button always
+     * describes what the next tap will do. There is no flag to turn it off: suspending
+     * playback from outside the app is the reason this notification carries buttons at
+     * all, and Stop on its own is what `background: true` produced before.
+     *
+     * Actions carry no icons. Since Android 7 the shade renders them as plain text, and
+     * the only surfaces that still draw the icon are Wear and `MediaStyle` — and a media
+     * session is deliberately not registered, or the metronome would capture the headset
+     * play/pause button from the backing track the user is practising along to.
+     */
+    fun build(
+        context: Context,
+        options: BackgroundOptions,
+        bpm: Double,
+        playback: Playback
+    ): Notification {
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle(options.title)
             .setContentText(contentText(options, bpm))
@@ -52,6 +72,12 @@ internal object NotificationFactory {
         }
 
         launchIntent(context)?.let { builder.setContentIntent(it) }
+
+        if (playback == Playback.Paused) {
+            builder.addAction(0, options.resumeLabel, resumeIntent(context))
+        } else {
+            builder.addAction(0, options.pauseLabel, pauseIntent(context))
+        }
 
         if (options.showStopButton) {
             builder.addAction(0, options.stopLabel, stopIntent(context))
@@ -100,8 +126,23 @@ internal object NotificationFactory {
         return PendingIntent.getActivity(context, 0, intent, PENDING_INTENT_FLAGS)
     }
 
-    private fun stopIntent(context: Context): PendingIntent {
-        val intent = MetronomeService.intent(context, MetronomeService.ACTION_STOP)
-        return PendingIntent.getService(context, 1, intent, PENDING_INTENT_FLAGS)
+    private fun stopIntent(context: Context) =
+        command(context, MetronomeService.ACTION_STOP, REQUEST_STOP)
+
+    private fun pauseIntent(context: Context) =
+        command(context, MetronomeService.ACTION_PAUSE, REQUEST_PAUSE)
+
+    private fun resumeIntent(context: Context) =
+        command(context, MetronomeService.ACTION_RESUME, REQUEST_RESUME)
+
+    /**
+     * Each action needs its own request code: two PendingIntents that differ only in
+     * their action are "equal" to the system, so a shared code would have
+     * FLAG_UPDATE_CURRENT rewrite one into the other and both buttons would do the
+     * same thing.
+     */
+    private fun command(context: Context, action: String, requestCode: Int): PendingIntent {
+        val intent = MetronomeService.intent(context, action)
+        return PendingIntent.getService(context, requestCode, intent, PENDING_INTENT_FLAGS)
     }
 }
