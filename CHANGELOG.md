@@ -6,6 +6,31 @@ SPDX-License-Identifier: MIT
 
 # Changelog
 
+## [2.0.0](https://github.com/guitar0-net/expo-precision-metronome/compare/v1.4.0...v2.0.0) (2026-08-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* replace onStop with onPlaybackChange
+
+### Features
+
+* **android:** add a notification permission request api ([893f866](https://github.com/guitar0-net/expo-precision-metronome/commit/893f866f51ef9a32e4e673646bf281caed9e2866))
+* **android:** add pause and resume actions to the notification ([48fab1a](https://github.com/guitar0-net/expo-precision-metronome/commit/48fab1a09a45fa24ec47a52269da0630917a2218))
+* **android:** pause playback without tearing down the audio stream ([4c53b5a](https://github.com/guitar0-net/expo-precision-metronome/commit/4c53b5a7a2c9521e5f46aebb83edf70e7c42c36b))
+* **android:** reject the permission request when the manifest lacks it ([04f1ca8](https://github.com/guitar0-net/expo-precision-metronome/commit/04f1ca866e1eacdfbbe696dd185cf9b5ddb74f78))
+* **android:** show the bpm in the notification only while backgrounded ([0c7fe04](https://github.com/guitar0-net/expo-precision-metronome/commit/0c7fe043d379e2f97eb671e4faf44e211b3b6434))
+* **ios:** pause playback while keeping the audio session active ([ada4bf0](https://github.com/guitar0-net/expo-precision-metronome/commit/ada4bf0541059316c462187a4fb1e65b5d2b4921))
+* pause on interruption and auto-resume after transient loss ([c463eef](https://github.com/guitar0-net/expo-precision-metronome/commit/c463eef14efc5fb20da376d976514349e8e4f161))
+* replace onStop with onPlaybackChange ([4301c61](https://github.com/guitar0-net/expo-precision-metronome/commit/4301c61388dbfc6aa5cd7e8a244dca6f06da833b))
+* report whether the notification permission can be asked again ([2601cb4](https://github.com/guitar0-net/expo-precision-metronome/commit/2601cb40c6bdc9895023660e2a9e3ba4e14aebe4))
+
+
+### Bug Fixes
+
+* **example:** keep a failed permission prompt from aborting playback ([31fd5b6](https://github.com/guitar0-net/expo-precision-metronome/commit/31fd5b6367a336f6c5c40381952c0efd2d4b4a9a))
+* **ios:** restart the bar when resuming after an interruption ([c806641](https://github.com/guitar0-net/expo-precision-metronome/commit/c806641c40150d9419b2f63ed65e4075ed77dc74))
+
 ## [1.4.0](https://github.com/guitar0-net/expo-precision-metronome/compare/v1.3.0...v1.4.0) (2026-08-13)
 
 
