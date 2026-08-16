@@ -7,13 +7,16 @@ import {
   BPM_MAX,
   BPM_MIN,
   ExpoPrecisionMetronomeModuleEvents,
+  PERMISSION_STATUSES,
   SOUND_PRESETS,
   SoundPreset,
 } from "../ExpoPrecisionMetronome.types";
 import ExpoPrecisionMetronomeModule from "../ExpoPrecisionMetronomeModule";
 import {
+  getNotificationPermission,
   getState,
   pause,
+  requestNotificationPermission,
   resume,
   setBpm,
   setPattern,
@@ -177,6 +180,31 @@ describe("getState()", () => {
 
     await expect(getState()).resolves.toEqual(snapshot);
     expect(mod.getState).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("the notification permission api", () => {
+  test("request resolves to whether the permission is now granted", async () => {
+    mod.requestNotificationPermission.mockResolvedValue(false);
+
+    await expect(requestNotificationPermission()).resolves.toBe(false);
+    expect(mod.requestNotificationPermission).toHaveBeenCalledTimes(1);
+  });
+
+  test.each(PERMISSION_STATUSES)("get passes '%s' through", async (status) => {
+    mod.getNotificationPermission.mockResolvedValue(status);
+
+    await expect(getNotificationPermission()).resolves.toBe(status);
+  });
+
+  // The library never prompts on its own — the timing of a system dialog is a
+  // product decision belonging to the app.
+  test("reading the permission never triggers a request", async () => {
+    mod.getNotificationPermission.mockResolvedValue("undetermined");
+
+    await getNotificationPermission();
+
+    expect(mod.requestNotificationPermission).not.toHaveBeenCalled();
   });
 });
 

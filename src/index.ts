@@ -11,6 +11,7 @@ import type {
   BeatAccent,
   MetronomeState,
   NativeStartOptions,
+  PermissionStatus,
   SoundPreset,
   StartOptions,
 } from "./ExpoPrecisionMetronome.types";
@@ -166,6 +167,26 @@ export function resume(): Promise<void> {
  */
 export function getState(): Promise<MetronomeState> {
   return ExpoPrecisionMetronomeModule.getState();
+}
+
+/**
+ * Asks for `POST_NOTIFICATIONS` on Android 13+ and resolves to whether it is now
+ * granted. Resolves `true` immediately on iOS and below Android 13, where nothing
+ * has to be asked for.
+ *
+ * The library never prompts by itself. An automatic dialog at the first
+ * `start({ background })` lands at a moment the app cannot predict, and a second
+ * denial on Android 13 means it never appears again — so the timing belongs to the
+ * app. Playback works either way; only the notification, and with it pause from
+ * outside the app, is lost.
+ */
+export function requestNotificationPermission(): Promise<boolean> {
+  return ExpoPrecisionMetronomeModule.requestNotificationPermission();
+}
+
+/** Reads the permission without ever prompting — safe to call on every mount. */
+export function getNotificationPermission(): Promise<PermissionStatus> {
+  return ExpoPrecisionMetronomeModule.getNotificationPermission();
 }
 
 export async function setBpm(bpm: number): Promise<void> {

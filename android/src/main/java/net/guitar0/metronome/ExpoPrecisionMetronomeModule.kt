@@ -4,8 +4,11 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import expo.modules.interfaces.permissions.PermissionsStatus
+import expo.modules.kotlin.Promise
 import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -71,6 +74,12 @@ class BackgroundNotConfiguredException :
             "[\"expo-precision-metronome\", { \"backgroundAudio\": true }] — then run " +
             "`npx expo prebuild`. Projects that never prebuild must declare them in " +
             "AndroidManifest.xml by hand."
+    )
+
+class PermissionsUnavailableException :
+    CodedException(
+        "The Expo permissions manager is not available. Are all the installed Expo " +
+            "modules properly linked?"
     )
 
 class ExpoPrecisionMetronomeModule : Module() {
@@ -148,6 +157,7 @@ class ExpoPrecisionMetronomeModule : Module() {
             val background = options?.background
             if (background != null) {
                 requireBackgroundConfigured()
+                warnIfNotificationHidden()
             }
 
             // MetronomeEngine.start() is a no-op on a live stream, so calling start()
@@ -187,6 +197,42 @@ class ExpoPrecisionMetronomeModule : Module() {
                 "state" to state.playback.jsName,
                 "bpm" to state.bpm,
                 "notificationVisible" to isNotificationVisible(state)
+            )
+        }
+
+        // The library never prompts on its own: an automatic dialog at the first
+        // start({ background }) lands at a moment the app cannot predict — mid-lesson,
+        // say — and on Android 13 a second denial means it never appears again. When to
+        // ask is a product decision, so it is handed to the app as a call it makes.
+        AsyncFunction("requestNotificationPermission") { promise: Promise ->
+            val permission = runtimeNotificationPermission()
+            if (permission == null) {
+                promise.resolve(true)
+                return@AsyncFunction
+            }
+            val permissions = appContext.permissions ?: throw PermissionsUnavailableException()
+            permissions.askForPermissions(
+                { result ->
+                    val status = result[permission]?.status
+                    promise.resolve(status == PermissionsStatus.GRANTED)
+                },
+                permission
+            )
+        }
+
+        AsyncFunction("getNotificationPermission") { promise: Promise ->
+            val permission = runtimeNotificationPermission()
+            if (permission == null) {
+                promise.resolve(PermissionsStatus.GRANTED.status)
+                return@AsyncFunction
+            }
+            val permissions = appContext.permissions ?: throw PermissionsUnavailableException()
+            permissions.getPermissions(
+                { result ->
+                    val status = result[permission]?.status ?: PermissionsStatus.UNDETERMINED
+                    promise.resolve(status.status)
+                },
+                permission
             )
         }
 
@@ -239,12 +285,27 @@ class ExpoPrecisionMetronomeModule : Module() {
     /**
      * The notification is the only way to reach pause from outside the app, so an app
      * that cannot post one has to be able to tell — see `requestNotificationPermission`.
+     *
+     * Asked of the notification manager rather than of the permission, because the two
+     * can disagree: notifications can be switched off app-wide with POST_NOTIFICATIONS
+     * still granted, and what matters here is whether anything will actually appear.
      */
     private fun isNotificationVisible(state: MetronomeState): Boolean {
         if (state.background == null) return false
         val context = androidContext ?: return false
         return NotificationManagerCompat.from(context).areNotificationsEnabled()
     }
+
+    /**
+     * `null` below Android 13, where posting a notification needs no runtime permission
+     * and there is therefore nothing to ask for or report on.
+     */
+    private fun runtimeNotificationPermission(): String? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.POST_NOTIFICATIONS
+        } else {
+            null
+        }
 
     /**
      * Every service command is issued from a listener callback, so they reach the main
@@ -303,6 +364,27 @@ class ExpoPrecisionMetronomeModule : Module() {
         }
     }
 
+    /**
+     * A missing notification is no reason to refuse to play — the primary function is
+     * not the one that degrades. But since 2.0 the notification is also the only way to
+     * pause from outside the app, so the degradation is severe enough to be worth
+     * saying out loud.
+     *
+     * Logcat rather than `console.warn`: a developer wiring up the native side may well
+     * not be watching Metro, and the app can read the same fact from
+     * `getState().notificationVisible` when it wants to act on it.
+     */
+    private fun warnIfNotificationHidden() {
+        val context = androidContext ?: return
+        if (NotificationManagerCompat.from(context).areNotificationsEnabled()) return
+        Log.w(
+            TAG,
+            "Background playback was requested but notifications are disabled, so the " +
+                "metronome notification is hidden and pause is only reachable from " +
+                "inside the app. Call requestNotificationPermission() beforehand."
+        )
+    }
+
     private fun hasPermission(context: Context, permission: String): Boolean =
         ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 
@@ -327,5 +409,6 @@ class ExpoPrecisionMetronomeModule : Module() {
 
     private companion object {
         const val REASON_EXPLICIT = "explicit"
+        const val TAG = "ExpoPrecisionMetronome"
     }
 }
