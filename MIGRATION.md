@@ -104,8 +104,13 @@ Both resolve as granted on iOS and below Android 13, so no platform branch is ne
 
 `requestNotificationPermission()` rejects with `ERR_NO_FOREGROUND_ACTIVITY` when no activity is on screen, because Android cannot show the dialog then. Call it from a screen the user is looking at.
 
+### `showStopButton: false` no longer means "no buttons"
+
+The notification always renders a pause button now, so that flag turns the notification from **Pause + Stop** into **Pause alone**, where in 1.x it produced a notification with no buttons at all.
+
+There is no flag that brings the button-free notification back. Suspending playback from outside the app is what the notification is for since 2.0, and a notification that cannot do it is a status indicator the user cannot act on.
+
 ### New, additive
 
 - `pause()` and `resume()` — idempotent, and deliberately not a toggle. See the [README](README.md#pausing).
 - `background.pauseLabel` / `background.resumeLabel` — Android button labels, defaulting to `"Pause"` and `"Resume"`.
-- The notification always renders a pause button. `showStopButton: false` now leaves Pause alone rather than no buttons at all.
