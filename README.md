@@ -10,7 +10,7 @@ SPDX-License-Identifier: MIT
 [![Android](https://github.com/guitar0-net/expo-precision-metronome/actions/workflows/ci-android.yml/badge.svg?branch=main)](https://github.com/guitar0-net/expo-precision-metronome/actions/workflows/ci-android.yml)
 [![iOS](https://github.com/guitar0-net/expo-precision-metronome/actions/workflows/ci-ios.yml/badge.svg?branch=main)](https://github.com/guitar0-net/expo-precision-metronome/actions/workflows/ci-ios.yml)
 [![npm version](https://img.shields.io/npm/v/expo-precision-metronome?style=flat-square)](https://www.npmjs.com/package/expo-precision-metronome)
-[![Expo SDK](https://img.shields.io/badge/Expo%20SDK-55%20%7C%2056-000020?style=flat-square&logo=expo&logoColor=white)](https://docs.expo.dev/)
+[![Expo SDK](https://img.shields.io/badge/Expo%20SDK-55%20%7C%2056%20%7C%2057-000020?style=flat-square&logo=expo&logoColor=white)](https://docs.expo.dev/)
 [![REUSE status](https://api.reuse.software/badge/github.com/guitar0-net/expo-precision-metronome)](https://api.reuse.software/info/github.com/guitar0-net/expo-precision-metronome)
 
 > High-precision metronome engine for Expo and React Native. Beats are scheduled at the **native audio layer** — timing stays rock-solid regardless of JS thread load.
@@ -32,10 +32,10 @@ SPDX-License-Identifier: MIT
 
 |              | Minimum                                          |
 | ------------ | ------------------------------------------------ |
-| Expo SDK     | 55 (developed and tested against 56)             |
+| Expo SDK     | 55 (CI-tested on 55, 56 and 57)                  |
 | React Native | 0.82                                             |
 | React        | 19                                               |
-| iOS          | 15.1 on SDK 55, 16.4 on SDK 56                   |
+| iOS          | 15.1 on SDK 55, 16.4 on SDK 56 and 57            |
 | Android API  | 24 (26+ recommended for AAudio low-latency path) |
 | Node         | 20.19.4 (React Native 0.85 toolchain)            |
 
@@ -470,7 +470,7 @@ type StartOptions = {
 
 ## Running the example app
 
-The example in `example/` is a standalone Expo SDK 56 app that autolinks the package from `..`.
+The example in `example/` is a standalone Expo SDK 57 app that autolinks the package from `..`.
 
 ```sh
 cd example
