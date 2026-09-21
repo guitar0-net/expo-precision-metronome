@@ -197,3 +197,20 @@ jobs:
       - name: Build Android (compileSdk ${{ matrix.compile-sdk }})
         working-directory: example/android
         run: ./gradlew assembleDebug -Pandroid.compileSdkVersion=${{ matrix.compile-sdk }} --no-daemon
+
+      # Google Play rejects apps whose native libraries cannot load on 16 KB page devices.
+      - name: Check 16 KB page alignment of native libraries
+        run: |
+          libs=$(find android/build/intermediates/merged_native_libs -name 'libmetronome.so')
+          [ -n "$libs" ] || { echo "libmetronome.so not found"; exit 1; }
+          status=0
+          for lib in $libs; do
+            for align in $(readelf -lW "$lib" | awk '$1 == "LOAD" { print $NF }'); do
+              if [ $((align)) -lt 16384 ]; then
+                echo "::error file=$lib::LOAD segment aligned to $align, expected at least 0x4000"
+                status=1
+              fi
+            done
+            echo "$lib OK"
+          done
+          exit $status
