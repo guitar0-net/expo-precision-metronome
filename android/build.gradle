@@ -9,6 +9,16 @@ version = '1.0.0'
 
 android {
   namespace "net.guitar0.metronome"
+
+  // Build with the host app's NDK instead of AGP's bundled default,
+  // the same way expo-modules-core and React Native libraries do.
+  if (rootProject.hasProperty("ndkPath")) {
+    ndkPath rootProject.ext.ndkPath
+  }
+  if (rootProject.hasProperty("ndkVersion")) {
+    ndkVersion rootProject.ext.ndkVersion
+  }
+
   defaultConfig {
     versionCode 1
     versionName "1.0.0"
@@ -18,7 +28,9 @@ android {
     externalNativeBuild {
       cmake {
         cppFlags "-std=c++17"
-        arguments "-DANDROID_STL=c++_shared"
+        // NDK r27 still aligns ELF segments to 4 KB by default; Google Play rejects
+        // libraries that cannot load on 16 KB page devices (Android 15+).
+        arguments "-DANDROID_STL=c++_shared", "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON"
       }
     }
     ndk {
