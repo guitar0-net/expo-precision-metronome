@@ -9,9 +9,9 @@
     "web": "expo start --web"
   },
   "dependencies": {
-    "expo": "~56.0.19",
+    "expo": "~57.0.24",
     "react": "19.2.3",
-    "react-native": "0.85.3"
+    "react-native": "0.86.3"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
