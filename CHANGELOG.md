@@ -6,6 +6,13 @@ SPDX-License-Identifier: MIT
 
 # Changelog
 
+## [2.0.1](https://github.com/guitar0-net/expo-precision-metronome/compare/v2.0.0...v2.0.1) (2026-09-21)
+
+
+### Bug Fixes
+
+* **android:** align native library to 16 kb pages ([262287e](https://github.com/guitar0-net/expo-precision-metronome/commit/262287ec5388182af09d13ca8a5175a42ad35c74))
+
 ## [2.0.0](https://github.com/guitar0-net/expo-precision-metronome/compare/v1.4.0...v2.0.0) (2026-08-16)
 
 
