@@ -10,6 +10,10 @@ on:
     paths:
       - "ios/**"
       - "example/ios/**"
+      - "example/package.json"
+      - "example/package-lock.json"
+      - "app.plugin.js"
+      - "plugin/src/**"
       - "package.json"
       - "package-lock.json"
       - "expo-module.config.json"
@@ -19,6 +23,10 @@ on:
     paths:
       - "ios/**"
       - "example/ios/**"
+      - "example/package.json"
+      - "example/package-lock.json"
+      - "app.plugin.js"
+      - "plugin/src/**"
       - "package.json"
       - "package-lock.json"
       - "expo-module.config.json"
@@ -33,6 +41,8 @@ permissions:
 
 env:
   HUSKY: "0"
+  # The SDK the committed example app is on; other matrix entries regenerate it.
+  EXAMPLE_EXPO_SDK: "57"
 
 jobs:
   ios-swiftlint:
@@ -73,10 +83,15 @@ jobs:
         run: swift test --package-path ios
 
   ios-build:
-    name: iOS — build (simulator)
+    name: iOS — build (Expo SDK ${{ matrix.expo-sdk }})
     runs-on: macos-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     needs: [ios-swiftlint, ios-swift-tests]
+    strategy:
+      fail-fast: false
+      matrix:
+        # Keep in sync with peerDependencies and the README compatibility table.
+        expo-sdk: ["55", "56", "57"]
 
     steps:
       - name: Checkout repository
@@ -102,6 +117,16 @@ jobs:
       - name: Install example dependencies
         working-directory: example
         run: npm ci
+
+      # Each SDK ships its own React Native, deployment target and native project
+      # template, so the example is moved to that SDK and its ios/ project regenerated.
+      - name: Switch example to Expo SDK ${{ matrix.expo-sdk }}
+        if: matrix.expo-sdk != env.EXAMPLE_EXPO_SDK
+        working-directory: example
+        run: |
+          npm install "expo@~${{ matrix.expo-sdk }}.0.0"
+          npx expo install --fix
+          npx expo prebuild --clean --no-install --platform ios
 
       - name: Install CocoaPods dependencies
         working-directory: example/ios
