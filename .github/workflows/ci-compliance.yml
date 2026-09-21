@@ -87,6 +87,22 @@ jobs:
         working-directory: example/ios
         run: pod install
 
+      # Build React Native and Expo pods before CodeQL starts tracing, so the
+      # traced build below only recompiles this module's Swift sources.
+      - name: Prebuild Swift dependencies
+        if: matrix.language == 'swift'
+        working-directory: example/ios
+        run: |
+          xcodebuild build \
+            -project Pods/Pods.xcodeproj \
+            -target ExpoPrecisionMetronome \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            -parallelizeTargets \
+            -quiet
+          find ../../ios -name '*.swift' -not -path '*/Tests/*' -not -name Package.swift -exec touch {} +
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
