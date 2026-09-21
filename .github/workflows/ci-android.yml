@@ -10,6 +10,10 @@ on:
     paths:
       - "android/**"
       - "example/android/**"
+      - "example/package.json"
+      - "example/package-lock.json"
+      - "app.plugin.js"
+      - "plugin/src/**"
       - "package.json"
       - "package-lock.json"
       - "expo-module.config.json"
@@ -19,6 +23,10 @@ on:
     paths:
       - "android/**"
       - "example/android/**"
+      - "example/package.json"
+      - "example/package-lock.json"
+      - "app.plugin.js"
+      - "plugin/src/**"
       - "package.json"
       - "package-lock.json"
       - "expo-module.config.json"
@@ -33,6 +41,8 @@ permissions:
 
 env:
   HUSKY: "0"
+  # The SDK the committed example app is on; other matrix entries regenerate it.
+  EXAMPLE_EXPO_SDK: "57"
 
 jobs:
   android-kotlin-lint:
@@ -157,13 +167,15 @@ jobs:
           retention-days: 7
 
   android-build:
-    name: Android — build (compileSdk ${{ matrix.compile-sdk }})
+    name: Android — build (Expo SDK ${{ matrix.expo-sdk }})
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     needs: [android-kotlin-lint, android-lint, android-unit-tests]
     strategy:
+      fail-fast: false
       matrix:
-        compile-sdk: [36]
+        # Keep in sync with peerDependencies and the README compatibility table.
+        expo-sdk: ["55", "56", "57"]
 
     steps:
       - name: Checkout repository
@@ -191,12 +203,22 @@ jobs:
         working-directory: example
         run: npm ci
 
+      # Each SDK ships its own React Native, AGP and native project template,
+      # so the example is moved to that SDK and its android/ project regenerated.
+      - name: Switch example to Expo SDK ${{ matrix.expo-sdk }}
+        if: matrix.expo-sdk != env.EXAMPLE_EXPO_SDK
+        working-directory: example
+        run: |
+          npm install "expo@~${{ matrix.expo-sdk }}.0.0"
+          npx expo install --fix
+          npx expo prebuild --clean --no-install --platform android
+
       - name: Setup Gradle cache
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build Android (compileSdk ${{ matrix.compile-sdk }})
+      - name: Build Android (Expo SDK ${{ matrix.expo-sdk }})
         working-directory: example/android
-        run: ./gradlew assembleDebug -Pandroid.compileSdkVersion=${{ matrix.compile-sdk }} --no-daemon
+        run: ./gradlew assembleDebug --no-daemon
 
       # Google Play rejects apps whose native libraries cannot load on 16 KB page devices.
       - name: Check 16 KB page alignment of native libraries
