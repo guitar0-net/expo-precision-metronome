@@ -53,7 +53,7 @@ private:
     BeatScheduler scheduler_;
 
     // Written from the JS/Kotlin thread, read from the audio thread.
-    // std::atomic load/store is lock-free on ARM64 (hardware atomic).
+    // std::atomic load/store of 64-bit values is lock-free on every Android ABI.
     std::atomic<double>   currentBpm_{120.0};
     std::atomic<int>      currentPreset_{0};
     std::atomic<int64_t>  currentPattern_{kDefaultPattern};
