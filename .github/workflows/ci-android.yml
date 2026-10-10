@@ -220,19 +220,32 @@ jobs:
         working-directory: example/android
         run: ./gradlew assembleDebug --no-daemon
 
-      # Google Play rejects apps whose native libraries cannot load on 16 KB page devices.
-      - name: Check 16 KB page alignment of native libraries
+      # An app still installs on a device whose ABI the library was not built for,
+      # and then crashes in System.loadLibrary, so every ABI the example ships is checked.
+      - name: Check native libraries for every ABI
         run: |
-          libs=$(find android/build/intermediates/merged_native_libs -name 'libmetronome.so')
-          [ -n "$libs" ] || { echo "libmetronome.so not found"; exit 1; }
           status=0
-          for lib in $libs; do
-            for align in $(readelf -lW "$lib" | awk '$1 == "LOAD" { print $NF }'); do
-              if [ $((align)) -lt 16384 ]; then
-                echo "::error file=$lib::LOAD segment aligned to $align, expected at least 0x4000"
-                status=1
-              fi
-            done
-            echo "$lib OK"
+          for abi in armeabi-v7a arm64-v8a x86 x86_64; do
+            libs=$(find android/build/intermediates/merged_native_libs -path "*/$abi/libmetronome.so")
+            if [ -z "$libs" ]; then
+              echo "::error::libmetronome.so was not built for $abi"
+              status=1
+              continue
+            fi
+            # Google Play rejects apps whose native libraries cannot load on 16 KB page
+            # devices; only 64-bit ABIs run on such devices.
+            case "$abi" in
+              arm64-v8a | x86_64)
+                for lib in $libs; do
+                  for align in $(readelf -lW "$lib" | awk '$1 == "LOAD" { print $NF }'); do
+                    if [ $((align)) -lt 16384 ]; then
+                      echo "::error file=$lib::LOAD segment aligned to $align, expected at least 0x4000"
+                      status=1
+                    fi
+                  done
+                done
+                ;;
+            esac
+            echo "$abi OK"
           done
           exit $status
