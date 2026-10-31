@@ -28,20 +28,36 @@
     },
 
     {
-      "description": "expo, react-native, and react must stay in sync per the Expo SDK compatibility table. Wait 14 days before raising a PR.",
-      "matchPackageNames": [
-        "expo",
-        "expo-module-scripts",
-        "/^expo-/",
-        "/^@expo\\//",
-        "react-native",
-        "react",
-        "@types/react",
-        "@types/react-native"
-      ],
+      "description": "Expo patch updates within the current SDK. Wait 14 days before raising a PR.",
+      "matchPackageNames": ["expo", "expo-module-scripts", "/^expo-/", "/^@expo\\//"],
       "groupName": "expo-sdk",
       "minimumReleaseAge": "14 days",
       "labels": ["dependencies", "expo-sdk"]
+    },
+
+    {
+      "description": "react, react-native and their types are pinned by the Expo SDK; bump them with `npx expo install --fix` during an SDK upgrade.",
+      "matchPackageNames": [
+        "react",
+        "react-native",
+        "@types/react",
+        "@types/react-native"
+      ],
+      "enabled": false
+    },
+
+    {
+      "description": "A new Expo SDK is a manual migration (expo install --fix, Gradle/Kotlin/AGP), not a Renovate bump.",
+      "matchPackageNames": ["expo", "expo-module-scripts", "/^expo-/", "/^@expo\\//"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+
+    {
+      "description": "The example app's Gradle wrapper must match the React Native template's AGP/Kotlin; update it with the SDK.",
+      "matchManagers": ["gradle-wrapper"],
+      "matchFileNames": ["example/android/**"],
+      "enabled": false
     },
 
     {
