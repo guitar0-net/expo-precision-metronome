@@ -69,13 +69,13 @@
   "devDependencies": {
     "@commitlint/cli": "^20.5.3",
     "@commitlint/config-conventional": "^20.5.3",
-    "@types/react": "~19.2.2",
+    "@types/react": "~19.3.0",
     "eslint-config-universe": "^15.0.3",
     "expo": "^56.0.19",
     "expo-module-scripts": "^56.0.3",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
-    "react-native": "0.85.3"
+    "react-native": "0.88.0"
   },
   "peerDependencies": {
     "expo": ">=55.0.0",
