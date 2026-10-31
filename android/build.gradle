@@ -76,7 +76,7 @@ android {
 }
 
 dependencies {
-  implementation "com.google.oboe:oboe:1.9.3"
+  implementation "com.google.oboe:oboe:1.11.0"
 
   testImplementation 'junit:junit:4.13.2'
   // Robolectric so the notification and service tests run in the normal `test` task —
