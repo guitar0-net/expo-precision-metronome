@@ -70,7 +70,7 @@
     "@commitlint/cli": "^20.5.3",
     "@commitlint/config-conventional": "^20.5.3",
     "@types/react": "~19.2.2",
-    "eslint-config-universe": "^15.0.3",
+    "eslint-config-universe": "^16.0.0",
     "expo": "^56.0.19",
     "expo-module-scripts": "^56.0.3",
     "husky": "^9.1.7",
