@@ -20,11 +20,16 @@ SPDX-License-Identifier: MIT
 npm install
 
 # Install example app dependencies
-cd example && npm install
+cd example && npm install && cd ..
+
+# Generate example/ios and example/android from app.json and the config plugin
+npm run example:prebuild
 
 # iOS — install pods
 cd example/ios && pod install
 ```
+
+`example/ios` and `example/android` are not committed ([Continuous Native Generation](https://docs.expo.dev/workflow/continuous-native-generation/)). Regenerate them after changing `example/app.json`, the config plugin, or the Expo SDK version: `npm run example:prebuild -- --clean`. The Android and Kotlin checks below run Gradle inside `example/android`, so generate it first.
 
 ## Running the example app
 

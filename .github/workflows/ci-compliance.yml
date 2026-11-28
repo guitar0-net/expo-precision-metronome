@@ -82,6 +82,15 @@ jobs:
         working-directory: example
         run: npm ci
 
+      - name: Build config plugin
+        if: matrix.language != 'javascript-typescript'
+        run: npm run build:plugin
+
+      - name: Generate example native project
+        if: matrix.language != 'javascript-typescript'
+        working-directory: example
+        run: npx expo prebuild --no-install --platform ${{ matrix.language == 'swift' && 'ios' || 'android' }}
+
       - name: Install CocoaPods dependencies
         if: matrix.language == 'swift'
         working-directory: example/ios

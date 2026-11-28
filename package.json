@@ -8,6 +8,7 @@
     "build": "expo-module build && npm run build:plugin",
     "build:plugin": "expo-module build plugin",
     "clean": "expo-module clean && expo-module clean plugin",
+    "example:prebuild": "npm run build:plugin && cd example && npx expo prebuild --no-install",
     "lint": "expo-module lint && expo-module lint plugin",
     "lint:kt": "cd example/android && ./gradlew :expo-precision-metronome:ktlintCheck --no-daemon",
     "lint:swift": "swiftlint lint --strict",

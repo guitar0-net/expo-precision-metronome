@@ -9,7 +9,7 @@ on:
     branches: [main]
     paths:
       - "ios/**"
-      - "example/ios/**"
+      - "example/app.json"
       - "example/package.json"
       - "example/package-lock.json"
       - "app.plugin.js"
@@ -22,7 +22,7 @@ on:
     branches: [main]
     paths:
       - "ios/**"
-      - "example/ios/**"
+      - "example/app.json"
       - "example/package.json"
       - "example/package-lock.json"
       - "app.plugin.js"
@@ -41,7 +41,7 @@ permissions:
 
 env:
   HUSKY: "0"
-  # The SDK the committed example app is on; other matrix entries regenerate it.
+  # The SDK example/package.json is on; other matrix entries switch to theirs first.
   EXAMPLE_EXPO_SDK: "57"
 
 jobs:
@@ -119,14 +119,17 @@ jobs:
         run: npm ci
 
       # Each SDK ships its own React Native, deployment target and native project
-      # template, so the example is moved to that SDK and its ios/ project regenerated.
+      # template, so the example is moved to that SDK before its ios/ project is generated.
       - name: Switch example to Expo SDK ${{ matrix.expo-sdk }}
         if: matrix.expo-sdk != env.EXAMPLE_EXPO_SDK
         working-directory: example
         run: |
           npm install "expo@~${{ matrix.expo-sdk }}.0.0"
           npx expo install --fix
-          npx expo prebuild --clean --no-install --platform ios
+
+      - name: Generate example iOS project
+        working-directory: example
+        run: npx expo prebuild --no-install --platform ios
 
       - name: Install CocoaPods dependencies
         working-directory: example/ios
