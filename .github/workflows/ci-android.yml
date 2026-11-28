@@ -9,7 +9,7 @@ on:
     branches: [main]
     paths:
       - "android/**"
-      - "example/android/**"
+      - "example/app.json"
       - "example/package.json"
       - "example/package-lock.json"
       - "app.plugin.js"
@@ -22,7 +22,7 @@ on:
     branches: [main]
     paths:
       - "android/**"
-      - "example/android/**"
+      - "example/app.json"
       - "example/package.json"
       - "example/package-lock.json"
       - "app.plugin.js"
@@ -41,7 +41,7 @@ permissions:
 
 env:
   HUSKY: "0"
-  # The SDK the committed example app is on; other matrix entries regenerate it.
+  # The SDK example/package.json is on; other matrix entries switch to theirs first.
   EXAMPLE_EXPO_SDK: "57"
 
 jobs:
@@ -72,6 +72,14 @@ jobs:
       - name: Install example dependencies
         working-directory: example
         run: npm ci
+
+      - name: Build config plugin
+        run: npm run build:plugin
+
+      # example/android/ is not committed: it is generated from app.json and the config plugin.
+      - name: Generate example Android project
+        working-directory: example
+        run: npx expo prebuild --no-install --platform android
 
       - name: Setup Gradle cache
         uses: gradle/actions/setup-gradle@v6
@@ -107,6 +115,14 @@ jobs:
       - name: Install example dependencies
         working-directory: example
         run: npm ci
+
+      - name: Build config plugin
+        run: npm run build:plugin
+
+      # example/android/ is not committed: it is generated from app.json and the config plugin.
+      - name: Generate example Android project
+        working-directory: example
+        run: npx expo prebuild --no-install --platform android
 
       - name: Setup Gradle cache
         uses: gradle/actions/setup-gradle@v6
@@ -150,6 +166,14 @@ jobs:
       - name: Install example dependencies
         working-directory: example
         run: npm ci
+
+      - name: Build config plugin
+        run: npm run build:plugin
+
+      # example/android/ is not committed: it is generated from app.json and the config plugin.
+      - name: Generate example Android project
+        working-directory: example
+        run: npx expo prebuild --no-install --platform android
 
       - name: Setup Gradle cache
         uses: gradle/actions/setup-gradle@v6
@@ -204,14 +228,17 @@ jobs:
         run: npm ci
 
       # Each SDK ships its own React Native, AGP and native project template,
-      # so the example is moved to that SDK and its android/ project regenerated.
+      # so the example is moved to that SDK before its android/ project is generated.
       - name: Switch example to Expo SDK ${{ matrix.expo-sdk }}
         if: matrix.expo-sdk != env.EXAMPLE_EXPO_SDK
         working-directory: example
         run: |
           npm install "expo@~${{ matrix.expo-sdk }}.0.0"
           npx expo install --fix
-          npx expo prebuild --clean --no-install --platform android
+
+      - name: Generate example Android project
+        working-directory: example
+        run: npx expo prebuild --no-install --platform android
 
       - name: Setup Gradle cache
         uses: gradle/actions/setup-gradle@v6
